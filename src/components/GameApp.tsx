@@ -326,15 +326,19 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
                 <div>Peter Skoland</div>
               </div>
             </div>
-            <a href="https://saligkaos.no" target="_blank" rel="noopener noreferrer" className="inline-block opacity-40 hover:opacity-70 transition-opacity">
-              <Image src="/icons/salig_kaos.png.webp" alt="Salig Kaos" width={90} height={25} />
-            </a>
-            <button
-              onClick={() => setShowCredits(false)}
-              className="mt-2 text-[10px] tracking-[3px] uppercase text-white/40 hover:text-white/60 transition-colors cursor-pointer"
-            >
-              Lukk
-            </button>
+            <div className="flex justify-center">
+              <a href="https://saligkaos.no" target="_blank" rel="noopener noreferrer" className="opacity-40 hover:opacity-70 transition-opacity">
+                <Image src="/icons/salig_kaos.png.webp" alt="Salig Kaos" width={90} height={25} />
+              </a>
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowCredits(false)}
+                className="mt-2 text-[10px] tracking-[3px] uppercase text-white/40 hover:text-white/60 transition-colors cursor-pointer"
+              >
+                Lukk
+              </button>
+            </div>
           </div>
         </div>
       )}
