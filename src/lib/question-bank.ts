@@ -181,3 +181,9 @@ export async function deleteQuestion(id: number): Promise<QuestionRow> {
   `) as QuestionRow[];
   return rows[0];
 }
+
+export async function deleteAllQuestions(): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`DELETE FROM question_bank RETURNING id`;
+  return rows.length;
+}

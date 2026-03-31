@@ -293,7 +293,7 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
       {/* Credits icon — top right */}
       <button
         onClick={() => setShowCredits(true)}
-        className="absolute top-4 right-4 z-20 p-2 text-white/20 hover:text-white/60 transition-colors cursor-pointer"
+        className="absolute top-4 right-4 z-20 p-2 text-white/50 hover:text-white/70 transition-colors cursor-pointer"
         title="Krediteringer"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -322,10 +322,6 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
                 <div>Kristoffer Wergeland</div>
               </div>
               <div>
-                <div className="text-white/25 uppercase mb-0.5">Quiz</div>
-                <div>David Tørre</div>
-              </div>
-              <div>
                 <div className="text-white/25 uppercase mb-0.5">Utvikling</div>
                 <div>Peter Skoland</div>
               </div>
@@ -333,16 +329,6 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
             <a href="https://saligkaos.no" target="_blank" rel="noopener noreferrer" className="inline-block opacity-40 hover:opacity-70 transition-opacity">
               <Image src="/icons/salig_kaos.png.webp" alt="Salig Kaos" width={90} height={25} />
             </a>
-            <div className="pt-1">
-              <a
-                href="https://www.youtube.com/watch?v=Ht9c5eVOIz4&list=PLP075BL7qEkbonoR39C8sm_8nCfE8Ao-d"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] tracking-[2px] text-accent2/60 hover:text-accent2 transition-colors cursor-pointer"
-              >
-                Se sesong 1 av Quizling →
-              </a>
-            </div>
             <button
               onClick={() => setShowCredits(false)}
               className="mt-2 text-[10px] tracking-[3px] uppercase text-white/20 hover:text-white/50 transition-colors cursor-pointer"
@@ -360,7 +346,7 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
       <div className="flex justify-center mb-8">
         <button
           onClick={onManual}
-          className="text-[10px] tracking-[3px] uppercase text-muted/60 hover:text-white/60 transition-colors underline underline-offset-4 cursor-pointer"
+          className="text-[10px] tracking-[3px] uppercase text-white/50 hover:text-white/70 transition-colors underline underline-offset-4 cursor-pointer"
         >
           Brukermanual
         </button>

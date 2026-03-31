@@ -385,6 +385,22 @@ function AdminPageInner() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!confirm(`Slett ALLE ${questions.length} spørsmål? Dette kan ikke angres.`)) return;
+    try {
+      const res = await fetch('/api/admin/questions', {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to delete questions');
+      const data = await res.json();
+      flash(`Deleted ${data.deleted} questions`);
+      fetchQuestions();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    }
+  };
+
   const handleUpdate = async (id: number) => {
     try {
       const res = await fetch(`/api/admin/questions/${id}`, {
@@ -591,8 +607,16 @@ function AdminPageInner() {
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
           </select>
-          <span className="text-muted text-xs ml-auto">
+          <span className="text-muted text-xs ml-auto flex items-center gap-3">
             {questions.length} question{questions.length !== 1 ? 's' : ''}
+            {questions.length > 0 && (
+              <button
+                onClick={handleDeleteAll}
+                className="text-danger/70 hover:text-danger text-[10px] tracking-[2px] uppercase cursor-pointer transition-colors"
+              >
+                Slett alle
+              </button>
+            )}
           </span>
         </div>
 

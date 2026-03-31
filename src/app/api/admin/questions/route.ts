@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getQuestions, addQuestion } from '@/lib/question-bank';
+import { getQuestions, addQuestion, deleteAllQuestions } from '@/lib/question-bank';
 import { checkAdminAuth } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest) {
@@ -12,6 +12,19 @@ export async function GET(request: NextRequest) {
     const difficulty = searchParams.get('difficulty') || undefined;
     const questions = await getQuestions(type, difficulty);
     return Response.json(questions);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    return Response.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const authErr = checkAdminAuth(request);
+  if (authErr) return authErr;
+
+  try {
+    const count = await deleteAllQuestions();
+    return Response.json({ deleted: count });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
     return Response.json({ error: message }, { status: 500 });
