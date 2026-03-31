@@ -216,12 +216,12 @@ function Screen({ children, center, onHome, onRestart, onManual }: { children: R
         {(onRestart || onManual) && (
           <div className="absolute top-4 left-4 z-20 flex gap-2">
             {onManual && (
-              <button onClick={onManual} className="text-white/30 hover:text-white/60 transition-colors p-2" title="Brukermanual">
+              <button onClick={onManual} className="text-white/50 hover:text-white/70 transition-colors p-2" title="Brukermanual">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </button>
             )}
             {onRestart && (
-              <button onClick={onRestart} className="text-white/30 hover:text-white/60 transition-colors p-2" title="Begynn på nytt">
+              <button onClick={onRestart} className="text-white/50 hover:text-white/70 transition-colors p-2" title="Begynn på nytt">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
               </button>
             )}
@@ -230,7 +230,7 @@ function Screen({ children, center, onHome, onRestart, onManual }: { children: R
         {onHome && (
           <button
             onClick={onHome}
-            className="absolute top-4 right-4 z-20 text-white/30 hover:text-white/60 transition-colors p-2"
+            className="absolute top-4 right-4 z-20 text-white/50 hover:text-white/70 transition-colors p-2"
             title="Avslutt spillet"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -318,11 +318,11 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
             <div className={`${bebas} text-[22px] tracking-[4px] text-white/80`}>KREDITERINGER</div>
             <div className="space-y-3 text-[11px] tracking-[2px] text-white/50">
               <div>
-                <div className="text-white/25 uppercase mb-0.5">Idé</div>
+                <div className="text-white/40 uppercase mb-0.5">Idé</div>
                 <div>Kristoffer Wergeland</div>
               </div>
               <div>
-                <div className="text-white/25 uppercase mb-0.5">Utvikling</div>
+                <div className="text-white/40 uppercase mb-0.5">Utvikling</div>
                 <div>Peter Skoland</div>
               </div>
             </div>
@@ -331,7 +331,7 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
             </a>
             <button
               onClick={() => setShowCredits(false)}
-              className="mt-2 text-[10px] tracking-[3px] uppercase text-white/20 hover:text-white/50 transition-colors cursor-pointer"
+              className="mt-2 text-[10px] tracking-[3px] uppercase text-white/40 hover:text-white/60 transition-colors cursor-pointer"
             >
               Lukk
             </button>
@@ -368,7 +368,7 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
         <a href="https://saligkaos.no" target="_blank" rel="noopener noreferrer" className="opacity-40 hover:opacity-70 transition-opacity">
           <Image src="/icons/salig_kaos.png.webp" alt="Salig Kaos" width={90} height={25} />
         </a>
-        <span className="text-[9px] tracking-[2px] text-white/10">v{APP_VERSION}</span>
+        <span className="text-[9px] tracking-[2px] text-white/30">v{APP_VERSION}</span>
       </div>
     </Screen>
   );
@@ -527,7 +527,7 @@ function LobbyScreen({
       <div className="text-center mb-5">
         <Tag>Spillere</Tag>
         <Title size="sm">LOBBY</Title>
-        <p className="text-xs text-muted/50 mt-2 tracking-wide">
+        <p className="text-xs text-muted/70 mt-2 tracking-wide">
           {game.players.length} spiller{game.players.length !== 1 ? 'e' : ''} i rommet
         </p>
         <p className="text-xs text-accent2/50 mt-1 tracking-wide">
@@ -558,7 +558,7 @@ function LobbyScreen({
                 }`}
               >
                 <div className={`${bebas} text-[15px] tracking-[2px] ${game.mode === m.id && !m.disabled ? 'text-white' : 'text-white/60'}`}>{m.label}</div>
-                <div className="text-[9px] text-muted/40 mt-1">{m.disabled ? 'Maks 5 spillere' : m.desc}</div>
+                <div className="text-[9px] text-muted/60 mt-1">{m.disabled ? 'Maks 5 spillere' : m.desc}</div>
               </button>
             ))}
           </div>
@@ -621,7 +621,7 @@ function RoleRevealScreen({
       <div className="text-center mb-8 mt-4">
         <Tag>Hemmelig</Tag>
         <Title>ROLLEFORDELING</Title>
-        <p className="text-xs text-muted/50 mt-2 tracking-wide">Følg med på din egen skjerm!</p>
+        <p className="text-xs text-muted/70 mt-2 tracking-wide">Følg med på din egen skjerm!</p>
       </div>
 
       <Card glow className="text-center relative overflow-hidden">
@@ -673,7 +673,7 @@ function RoleRevealScreen({
         ) : (
           <Btn onClick={onConfirm}>JEG HAR LEST ROLLEN MIN</Btn>
         )}
-        <p className="text-[10px] text-muted/40 text-center mt-4 tracking-[2px]">
+        <p className="text-[10px] text-muted/60 text-center mt-4 tracking-[2px]">
           {game.confirmedRoles.length}/{game.totalPlayers} har bekreftet
         </p>
       </div>
@@ -699,7 +699,7 @@ function LagnavnScreen({
       <div className="text-center mb-8">
         <Tag>Steg 1</Tag>
         <Title>VELG LAGNAVN</Title>
-        <p className="text-sm text-muted/50 mt-3 leading-relaxed px-4">
+        <p className="text-sm text-muted/70 mt-3 leading-relaxed px-4">
           Laget må bli enige om et av lagnavnene. Diskuter og velg!
         </p>
       </div>
@@ -797,7 +797,7 @@ function PowerQuestionScreen({
       <div className="text-center mb-8">
         <Tag>Maktspørsmål {round + 1}</Tag>
         <Title>MAKTSPØRSMÅL</Title>
-        <p className="text-sm text-muted/50 mt-3">Besvares individuelt! Den som svarer nærmest vinner.</p>
+        <p className="text-sm text-muted/70 mt-3">Besvares individuelt! Den som svarer nærmest vinner.</p>
       </div>
 
       <Card className="mb-4 border-l-2 border-l-gold/40">
@@ -847,7 +847,7 @@ function PowerResultScreen({
       </div>
 
       <Card className="text-center mb-6">
-        <p className="text-xs text-muted/50 mb-3 tracking-wide">Vinneren er</p>
+        <p className="text-xs text-muted/70 mb-3 tracking-wide">Vinneren er</p>
         <div className={`${bebas} text-[32px] tracking-[4px] text-gold`} style={{ textShadow: '0 0 20px rgba(201,168,76,0.3)' }}>
           {winner?.name ?? 'Ukjent'}
         </div>
@@ -858,7 +858,7 @@ function PowerResultScreen({
         <div className="text-[10px] tracking-[4px] uppercase text-muted/70 mb-4">Alle svar</div>
         {correctAnswer && (
           <div className="flex justify-between items-center pb-3 mb-3 border-b border-white/[0.06]">
-            <span className="text-xs text-muted/50">Fasit</span>
+            <span className="text-xs text-muted/70">Fasit</span>
             <span className={`${bebas} text-lg text-success`}>{correctAnswer}</span>
           </div>
         )}
@@ -872,7 +872,7 @@ function PowerResultScreen({
                 <div className="flex items-center gap-3">
                   <span className={`${bebas} text-base`}>{ans ?? '—'}</span>
                   {diff !== null && (
-                    <span className={`text-xs ${Math.abs(diff) === 0 ? 'text-success' : 'text-muted/40'}`}>
+                    <span className={`text-xs ${Math.abs(diff) === 0 ? 'text-success' : 'text-muted/60'}`}>
                       ({diff >= 0 ? '+' : ''}{diff})
                     </span>
                   )}
@@ -909,7 +909,7 @@ function PowerResultScreen({
                 <div className={`w-7 h-7 rounded-full ${pin.color} ${pin.shadow} shrink-0 mt-0.5`} />
                 <div className="flex-1">
                   <div className="font-medium text-[15px] mb-1 text-white/90">{pin.name}</div>
-                  <div className="text-sm text-muted/50 leading-relaxed">{pin.desc}</div>
+                  <div className="text-sm text-muted/70 leading-relaxed">{pin.desc}</div>
                 </div>
               </div>
             ))}
@@ -969,9 +969,9 @@ function QuizQuestionScreen({
       <div className="text-center mb-8">
         <Tag>Spørsmål {q?.number ?? 1} av {totalQ}</Tag>
         <Title>FELLESSPØRSMÅL</Title>
-        <p className="text-sm text-muted/50 mt-3">Diskuter i laget og bli enige om et svar. Bare én av dere vet hva som faktisk leveres.</p>
+        <p className="text-sm text-muted/70 mt-3">Diskuter i laget og bli enige om et svar. Bare én av dere vet hva som faktisk leveres.</p>
         {game.questionStartedAt && !answered && (
-          <div className="text-[10px] tracking-[2px] text-muted/40 mt-2">
+          <div className="text-[10px] tracking-[2px] text-muted/60 mt-2">
             {minutes > 0 ? `${minutes}m ${seconds.toString().padStart(2, '0')}s` : `${seconds}s`}
           </div>
         )}
@@ -1032,7 +1032,7 @@ function QuizQuestionScreen({
       ) : (
         <div style={{ animation: 'scaleIn 0.3s ease' }}>
           <Card className="text-center mb-6">
-            <p className="text-xs text-muted/50 mb-2 tracking-wide">Levert svar</p>
+            <p className="text-xs text-muted/70 mb-2 tracking-wide">Levert svar</p>
             {game.isWriter ? (
               <p className="text-white font-medium text-base">{game.quizAnswers[qi]}</p>
             ) : (
@@ -1071,10 +1071,10 @@ function VotingScreen({
       <div className="text-center mb-8">
         <Tag>Eliminering</Tag>
         <Title>ELIMINERING</Title>
-        <p className="text-sm text-muted/50 mt-3">
+        <p className="text-sm text-muted/70 mt-3">
           {game.quizlingCount > 1 ? `Hvem er de ${game.quizlingCount} Quizlingene?` : 'Hvem er Quizlingen?'}
         </p>
-        <p className="text-xs text-muted/40 mt-2 tracking-wide">
+        <p className="text-xs text-muted/60 mt-2 tracking-wide">
           Velg {game.quizlingCount} {game.quizlingCount > 1 ? 'spillere' : 'spiller'}
         </p>
       </div>
@@ -1202,7 +1202,7 @@ function RevealScreen({
       {/* Step 0: Hidden elimination name */}
       {step === 0 && (
         <Card className="text-center mb-6 mt-8" style={{ animation: 'fadeUp 0.5s ease 0.3s both' }}>
-          <div className="text-xs text-muted/40 mb-2 tracking-wide">
+          <div className="text-xs text-muted/60 mb-2 tracking-wide">
             {hasElimination ? (isMulti ? 'De som ble eliminert er...' : 'Den som ble eliminert er...') : 'Resultat av avstemningen...'}
           </div>
           <div className={`${bebas} text-[36px] tracking-[5px] text-white/20`}>???</div>
@@ -1214,13 +1214,13 @@ function RevealScreen({
         <>
           {hasElimination ? (
             <Card className="text-center mb-6 mt-8" style={{ animation: step === 1 ? 'fadeUp 0.5s ease 0.1s both' : undefined }}>
-              <div className="text-xs text-muted/40 mb-2 tracking-wide">Laget stemte ut</div>
+              <div className="text-xs text-muted/60 mb-2 tracking-wide">Laget stemte ut</div>
               {eliminatedPlayers.map(({ player, votes }) => (
                 <div key={player?.id ?? 'unknown'} className="mb-2">
                   <div className={`${bebas} text-[28px] tracking-[4px]`}>
                     {player?.name ?? 'Ukjent'}
                   </div>
-                  <div className="text-sm text-muted/50">
+                  <div className="text-sm text-muted/70">
                     med {votes} {votes === 1 ? 'stemme' : 'stemmer'}
                   </div>
                 </div>
@@ -1228,11 +1228,11 @@ function RevealScreen({
             </Card>
           ) : (
             <Card className="text-center mb-6 mt-8" style={{ animation: step === 1 ? 'fadeUp 0.5s ease 0.1s both' : undefined }}>
-              <div className="text-xs text-muted/40 mb-2 tracking-wide">Ingen ble stemt ut</div>
+              <div className="text-xs text-muted/60 mb-2 tracking-wide">Ingen ble stemt ut</div>
               <div className={`${bebas} text-[22px] tracking-[3px] text-danger`}>
                 Stemmene var delte — ingen eliminering!
               </div>
-              <div className="text-sm text-muted/50 mt-2">
+              <div className="text-sm text-muted/70 mt-2">
                 {isMulti ? 'Quizlingene slipper unna med -3 poeng per stykk for laget' : 'Quizlingen slipper unna med -3 poeng for laget'}
               </div>
             </Card>
@@ -1243,7 +1243,7 @@ function RevealScreen({
       {/* Step 2: Hidden quizling name */}
       {step === 2 && (
         <Card glow className="text-center mb-6" style={{ animation: 'fadeUp 0.5s ease 0.1s both' }}>
-          <div className="text-xs text-muted/40 mb-3 tracking-wide">{isMulti ? 'Quizlingene er...' : 'Quizlingen er...'}</div>
+          <div className="text-xs text-muted/60 mb-3 tracking-wide">{isMulti ? 'Quizlingene er...' : 'Quizlingen er...'}</div>
           <div className="flex justify-center mb-3">
             <Image src="/icons/Quizling_hovedikon.png" alt="Quizling" width={48} height={48} className="opacity-30" />
           </div>
@@ -1254,7 +1254,7 @@ function RevealScreen({
       {/* Step 3+: Quizlings revealed */}
       {step >= 3 && (
         <Card glow className="text-center mb-6" style={{ animation: step === 3 ? 'fadeUp 0.6s ease 0.1s both' : undefined }}>
-          <div className="text-xs text-muted/40 mb-3 tracking-wide">{isMulti ? 'Quizlingene var' : 'Quizlingen var'}</div>
+          <div className="text-xs text-muted/60 mb-3 tracking-wide">{isMulti ? 'Quizlingene var' : 'Quizlingen var'}</div>
           <div className="flex justify-center mb-3">
             <Image src="/icons/Quizling_hovedikon.png" alt="Quizling" width={48} height={48} />
           </div>
@@ -1279,14 +1279,14 @@ function RevealScreen({
       {/* Step 4: Lagnavn + category card */}
       {step >= 4 && (
         <Card className="text-center mb-6" style={{ animation: step === 4 ? 'fadeUp 0.5s ease 0.1s both' : undefined }}>
-          <div className="text-xs text-muted/40 mb-2 tracking-wide">Lagnavn</div>
+          <div className="text-xs text-muted/60 mb-2 tracking-wide">Lagnavn</div>
           <div className={`${bebas} text-[24px] tracking-[3px] mb-3`}>
             {game.lagnavn ?? 'Ikke valgt'}
           </div>
           {game.quizlingLagnavnTarget && (
             <>
               <div className="w-full h-px bg-white/[0.06] my-3" />
-              <div className="text-xs text-muted/40 mb-2 tracking-wide">Quizlingen skulle få laget til å velge</div>
+              <div className="text-xs text-muted/60 mb-2 tracking-wide">Quizlingen skulle få laget til å velge</div>
               <div className={`${bebas} text-[20px] tracking-[2px] text-accent2`}>
                 {game.quizlingLagnavnTarget}
               </div>
@@ -1339,7 +1339,7 @@ function FasitScreen({
       <div className="text-center mb-8">
         <Tag>Fasit</Tag>
         <Title>SVARENE</Title>
-        <p className="text-sm text-muted/50 mt-3">
+        <p className="text-sm text-muted/70 mt-3">
           {game.isHost ? 'Trykk for å avsløre hvert spørsmål' : 'Verten avslører spørsmålene'}
         </p>
       </div>
@@ -1491,13 +1491,13 @@ function ResultScreen({
         >
           {trofasteWin ? 'TROFASTE VINNER!' : (isMulti ? 'QUIZLINGENE VINNER!' : 'QUIZLING VINNER!')}
         </div>
-        <p className="text-sm text-muted/50">
+        <p className="text-sm text-muted/70">
           {trofasteWin ? 'Laget klarte oppdraget!' : (isMulti ? 'Quizlingene lurte alle!' : 'Quizlingen lurte alle!')}
         </p>
       </div>
 
       <Card className="text-center mb-6" style={{ animation: 'fadeUp 0.4s ease 0.2s both' }}>
-        <div className={`text-[10px] tracking-[4px] uppercase text-muted/40 mb-3 ${bebas}`}>Poengsum</div>
+        <div className={`text-[10px] tracking-[4px] uppercase text-muted/60 mb-3 ${bebas}`}>Poengsum</div>
         <span className={`${bebas} text-[56px] leading-none ${score >= 0 ? 'text-success' : 'text-danger'}`}>
           {score >= 0 ? '+' : ''}{score}
         </span>
@@ -1506,7 +1506,7 @@ function ResultScreen({
       {/* Fasit summary */}
       {questionResults.length > 0 && (
         <Card className="mb-4" style={{ animation: 'fadeUp 0.4s ease 0.3s both' }}>
-          <div className={`text-[10px] tracking-[4px] uppercase text-muted/40 mb-4 ${bebas}`}>Fasit</div>
+          <div className={`text-[10px] tracking-[4px] uppercase text-muted/60 mb-4 ${bebas}`}>Fasit</div>
           <div className="space-y-2">
             {questionResults.map((r, i) => (
               <div key={i} className="flex items-center gap-3 text-sm">
@@ -1523,7 +1523,7 @@ function ResultScreen({
       {/* Lagnavn */}
       {game.lagnavn && (
         <Card className="mb-4" style={{ animation: 'fadeUp 0.4s ease 0.4s both' }}>
-          <div className={`text-[10px] tracking-[4px] uppercase text-muted/40 mb-2 ${bebas}`}>Lagnavn</div>
+          <div className={`text-[10px] tracking-[4px] uppercase text-muted/60 mb-2 ${bebas}`}>Lagnavn</div>
           <div className={`${bebas} text-[20px] tracking-[2px]`}>{game.lagnavn}</div>
           {game.quizlingLagnavnTarget && (
             <div className={`text-xs mt-2 ${game.quizlingLagnavnSuccess ? 'text-danger/80' : 'text-success/80'}`}>
@@ -1535,7 +1535,7 @@ function ResultScreen({
 
       {/* Eliminering */}
       <Card className="mb-4" style={{ animation: 'fadeUp 0.4s ease 0.5s both' }}>
-        <div className={`text-[10px] tracking-[4px] uppercase text-muted/40 mb-2 ${bebas}`}>Eliminering</div>
+        <div className={`text-[10px] tracking-[4px] uppercase text-muted/60 mb-2 ${bebas}`}>Eliminering</div>
         {eliminated.length > 0 ? (
           <div className="space-y-2">
             {eliminated.map(([id]) => {
@@ -1548,7 +1548,7 @@ function ResultScreen({
                   </div>
                   <div>
                     <span className="text-white/80 text-sm">{player?.name ?? 'Ukjent'}</span>
-                    <span className="text-muted/40 text-xs ml-2">
+                    <span className="text-muted/60 text-xs ml-2">
                       ({isCorrect ? (isMulti ? 'Quizling funnet!' : 'Quizlingen funnet!') : 'Feil person'})
                     </span>
                   </div>
@@ -1597,10 +1597,10 @@ export default function GameApp() {
     <>
       {manualModal}
       <div className="fixed top-4 left-4 z-40 flex gap-2">
-        <button onClick={openManual} className="text-white/30 hover:text-white/60 transition-colors p-2" title="Brukermanual">
+        <button onClick={openManual} className="text-white/50 hover:text-white/70 transition-colors p-2" title="Brukermanual">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </button>
-        <button onClick={leave} className="text-white/30 hover:text-white/60 transition-colors p-2" title="Begynn på nytt">
+        <button onClick={leave} className="text-white/50 hover:text-white/70 transition-colors p-2" title="Begynn på nytt">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
         </button>
       </div>
