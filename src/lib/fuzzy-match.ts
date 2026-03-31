@@ -66,6 +66,17 @@ function normalizeNumberWord(s: string): string {
 }
 
 /**
+ * Strip common Norwegian suffixes to get a rough word stem.
+ * This isn't a full stemmer — just enough to match common
+ * answer variants like kondensering/kondensasjon, fordamping/fordampning, etc.
+ */
+function norwegianStem(s: string): string {
+  return s
+    .replace(/(ering|asjon|ning|else|ment|itet|inne|skap|ende|inga|sjon|ing|ene|ene|ane|ør|er|en|et|ar)$/, '')
+    .replace(/(.)\1$/, '$1'); // collapse trailing double letter
+}
+
+/**
  * Check if a player's answer matches the correct answer using fuzzy matching.
  * Returns true if the answers are considered equivalent.
  */
@@ -84,6 +95,15 @@ export function isAnswerCorrect(playerAnswer: string | undefined, correctAnswer:
   // Levenshtein distance for typos (allow up to 2 edits for words > 3 chars)
   const maxDist = Math.min(2, Math.floor(Math.max(pa.length, ca.length) / 3));
   if (levenshtein(pa, ca) <= maxDist) return true;
+
+  // Norwegian stem comparison (e.g. kondensering ≈ kondensasjon)
+  if (pa.length >= 5 && ca.length >= 5) {
+    const paStem = norwegianStem(pa);
+    const caStem = norwegianStem(ca);
+    if (paStem.length >= 4 && caStem.length >= 4 && paStem === caStem) return true;
+    // Also allow small distance between stems
+    if (paStem.length >= 4 && caStem.length >= 4 && levenshtein(paStem, caStem) <= 1) return true;
+  }
 
   // Date normalization
   const paNorm = normalizeDate(pa);
