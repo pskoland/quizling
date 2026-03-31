@@ -1,22 +1,8 @@
 import { GameState, GameAction, PowerPin, GameMode, GAME_MODES } from './types';
 import { generateQuestions, generateLagnavnOptions } from './generate-questions';
 import { logGameResult } from './game-stats';
+import { useDb, getSql } from './db';
 
-// Storage abstraction: Postgres when DATABASE_URL is set, in-memory otherwise (tests)
-const useDb = () => !!process.env.DATABASE_URL;
-
-let _sql: ReturnType<typeof import('@neondatabase/serverless').neon> | null = null;
-function getSql() {
-  if (!_sql) {
-    // Dynamic import workaround: require at runtime
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { neon } = require('@neondatabase/serverless');
-    _sql = neon(process.env.DATABASE_URL!);
-  }
-  return _sql!;
-}
-
-// In-memory fallback for tests
 const memGames = new Map<string, GameState>();
 
 async function loadGame(code: string): Promise<GameState | null> {
@@ -33,11 +19,12 @@ async function saveGame(game: GameState): Promise<void> {
     return;
   }
   const sql = getSql();
+  const stateJson = JSON.stringify(game);
   await sql`
     INSERT INTO games (code, state, updated_at, created_at)
-    VALUES (${game.code}, ${JSON.stringify(game)}, ${game.updatedAt}, ${game.createdAt})
+    VALUES (${game.code}, ${stateJson}, ${game.updatedAt}, ${game.createdAt})
     ON CONFLICT (code) DO UPDATE SET
-      state = ${JSON.stringify(game)},
+      state = ${stateJson},
       updated_at = ${game.updatedAt}
   `;
 }
@@ -48,23 +35,6 @@ async function codeExists(code: string): Promise<boolean> {
   const rows = await sql`SELECT 1 FROM games WHERE code = ${code} LIMIT 1` as Record<string, unknown>[];
   return rows.length > 0;
 }
-
-const FALLBACK_QUESTIONS = [
-  { question: 'Hva heter Norges høyeste fjell?', answer: 'Galdhøpiggen' },
-  { question: 'Hvilket år ble den franske revolusjonen?', answer: '1789' },
-  { question: 'Hva er hovedstaden i Australia?', answer: 'Canberra' },
-  { question: 'Hvor mange bein har en edderkopp?', answer: '8' },
-];
-
-const FALLBACK_POWER_QUESTIONS = [
-  { question: 'Omtrent hvor mange kilometer er det fra Oslo til Bergen langs vei?', answer: '462' },
-  { question: 'Omtrent hvor mange land er det i verden?', answer: '195' },
-];
-
-const CATEGORIES = [
-  'dyreriket', 'mat og drikke', 'sport', 'farger', 'musikk',
-  'verdensrom', 'norsk natur', 'byer i Europa', 'filmer', 'vitenskap',
-];
 
 async function generateCode(): Promise<string> {
   let code: string;
@@ -440,6 +410,8 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
   const isQuizling = game.quizlingIds.includes(playerId);
   const player = game.players.find(p => p.id === playerId);
   const isHost = player?.isHost ?? false;
+  const isPostGame = game.phase === 'fasit' || game.phase === 'reveal' || game.phase === 'result';
+  const isQuizPhase = game.phase.startsWith('quiz-');
 
   const quizIndex = getCurrentQuizIndex(game);
   const writerId = game.writerQueue[quizIndex % game.writerQueue.length];
@@ -459,7 +431,7 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
   let canUsePin = false;
   let blackPinReveal: string | null = null; // For black pin during voting
 
-  if (myPin && game.phase.startsWith('quiz-')) {
+  if (myPin && isQuizPhase) {
     const totalQ = game.questions.length;
     if (myPin === 'blue' && quizIndex === totalQ - 1) {
       pinReveal = game.questions[quizIndex]?.answer ?? null;
@@ -498,7 +470,7 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
 
   // Per-question answer for quizling (not full sheet)
   let currentAnswerForQuizling: string | undefined;
-  if (isQuizling && game.phase.startsWith('quiz-')) {
+  if (isQuizling && isQuizPhase) {
     currentAnswerForQuizling = game.questions[quizIndex]?.answer;
   }
 
@@ -519,15 +491,15 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
     lagnavnOptions: (game.phase === 'lagnavn' || game.phase === 'lagnavn-confirmed') ? game.lagnavnOptions : undefined,
     quizlingLagnavnTarget: isQuizling && (game.phase === 'lagnavn' || game.phase === 'lagnavn-confirmed')
       ? game.quizlingLagnavnTarget
-      : (game.phase === 'fasit' || game.phase === 'reveal' || game.phase === 'result')
+      : (isPostGame)
         ? game.quizlingLagnavnTarget
         : undefined,
-    quizlingLagnavnSuccess: (game.phase === 'fasit' || game.phase === 'reveal' || game.phase === 'result')
+    quizlingLagnavnSuccess: (isPostGame)
       ? game.lagnavn === game.quizlingLagnavnTarget
       : undefined,
     currentQuestion: getCurrentQuestion(game),
     currentPowerQuestion: getCurrentPowerQuestion(game),
-    quizAnswers: (isWriter || game.phase === 'fasit' || game.phase === 'result' || game.phase === 'voting' || game.phase === 'reveal')
+    quizAnswers: (isWriter || isPostGame || game.phase === 'voting')
       ? game.quizAnswers
       : Object.fromEntries(
           Object.entries(game.quizAnswers).map(([k]) => [k, '***'])
@@ -535,7 +507,7 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
     powerAnswers: game.powerAnswers,
     powerWinners: game.powerWinners,
     powerPins: game.powerPins,
-    votes: (game.phase === 'fasit' || game.phase === 'reveal' || game.phase === 'result')
+    votes: (isPostGame)
       ? game.votes
       : (game.votes[playerId] ? { [playerId]: game.votes[playerId] } : {}),
     writerId,
@@ -552,11 +524,11 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
     blackPinQuestionIndex: myPin === 'black' && hasPinBeenUsed ? pinUsedAtIndex : undefined,
     fasitRevealCount: game.fasitRevealCount ?? 0,
     revealStep: game.revealStep ?? 0,
-    ...(game.phase === 'result' || game.phase === 'fasit' || game.phase === 'reveal' || game.phase.startsWith('power-result') ? {
+    ...(isPostGame || game.phase.startsWith('power-result') ? {
       allQuestions: game.questions,
       allPowerQuestions: game.powerQuestions,
-      quizlingIds: game.phase === 'result' || game.phase === 'fasit' || game.phase === 'reveal' ? game.quizlingIds : undefined,
-      category: game.phase === 'result' || game.phase === 'fasit' || game.phase === 'reveal' ? game.category : undefined,
+      quizlingIds: isPostGame ? game.quizlingIds : undefined,
+      category: isPostGame ? game.category : undefined,
     } : {}),
     wonCurrentPowerRound,
     isLastPowerRound: currentPowerRound ? parseInt(currentPowerRound[1]) === lastPowerRound : false,

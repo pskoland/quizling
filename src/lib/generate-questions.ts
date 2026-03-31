@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getQuestions } from './question-bank';
+import { getQuestionsRandom } from './question-bank';
 import { getLagnavnRandom } from './lagnavn-bank';
 
 interface GeneratedQuestions {
@@ -38,27 +38,26 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+const CATEGORIES = [
+  'dyreriket', 'mat og drikke', 'sport', 'farger', 'musikk',
+  'verdensrom', 'norsk natur', 'byer i Europa', 'filmer', 'vitenskap',
+];
+
 async function loadFromQuestionBank(difficulty?: string, quizCount = 10, powerCount = 2): Promise<GeneratedQuestions | null> {
   if (!process.env.DATABASE_URL) return null;
 
   try {
-    const quizRows = await getQuestions('quiz', difficulty);
-    const powerRows = await getQuestions('power', difficulty);
+    const [quizRows, powerRows] = await Promise.all([
+      getQuestionsRandom('quiz', quizCount, difficulty),
+      getQuestionsRandom('power', powerCount, difficulty),
+    ]);
 
     if (quizRows.length >= quizCount && powerRows.length >= powerCount) {
-      const selectedQuiz = shuffle(quizRows).slice(0, quizCount);
-      const selectedPower = shuffle(powerRows).slice(0, powerCount);
-
-      const categories = [
-        'dyreriket', 'mat og drikke', 'sport', 'farger', 'musikk',
-        'verdensrom', 'norsk natur', 'byer i Europa', 'filmer', 'vitenskap',
-      ];
-      const category = categories[Math.floor(Math.random() * categories.length)];
-
+      const category = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
       return {
         category,
-        questions: selectedQuiz.map((r) => ({ question: r.question, answer: r.answer })),
-        powerQuestions: selectedPower.map((r) => ({ question: r.question, answer: r.answer })),
+        questions: quizRows.map((r) => ({ question: r.question, answer: r.answer })),
+        powerQuestions: powerRows.map((r) => ({ question: r.question, answer: r.answer })),
       };
     }
   } catch {
@@ -80,12 +79,7 @@ export async function generateQuestions(difficulty?: string, quizCount = 10, pow
   try {
     const client = new Anthropic({ apiKey });
 
-    const categories = [
-      'dyreriket', 'mat og drikke', 'sport', 'farger', 'musikk',
-      'verdensrom', 'norsk natur', 'byer i Europa', 'filmer', 'vitenskap',
-      'historie', 'geografi', 'teknologi', 'kunst og kultur', 'kropp og helse',
-    ];
-    const category = categories[Math.floor(Math.random() * categories.length)];
+    const category = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',

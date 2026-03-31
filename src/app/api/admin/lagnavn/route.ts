@@ -2,9 +2,12 @@ import { NextRequest } from 'next/server';
 import { getLagnavn, addLagnavn, initLagnavnBank } from '@/lib/lagnavn-bank';
 import { checkAdminAuth } from '@/lib/admin-auth';
 
+let tableReady = false;
 async function ensureTable() {
+  if (tableReady) return;
   try {
     await initLagnavnBank();
+    tableReady = true;
   } catch {
     // already exists or non-fatal
   }

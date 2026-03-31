@@ -1,13 +1,6 @@
 import { GameState, GAME_MODES } from './types';
 import { isAnswerCorrect } from './fuzzy-match';
-
-const useDb = () => !!process.env.DATABASE_URL;
-
-function getSql() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { neon } = require('@neondatabase/serverless');
-  return neon(process.env.DATABASE_URL!);
-}
+import { useDb, getSql } from './db';
 
 export async function initGameStats() {
   if (!useDb()) return;
@@ -79,11 +72,9 @@ export async function logGameResult(game: GameState) {
   }
 
   const quizlingsFound = eliminated.filter(id => quizlingIds.includes(id)).length;
-  const wronglyEliminated = eliminated.filter(id => !quizlingIds.includes(id)).length;
   const quizlingsEscaped = quizlingIds.filter(id => !eliminated.includes(id)).length;
 
   score += quizlingsFound * 3;
-  score -= wronglyEliminated * 3;
   score -= quizlingsEscaped * 3;
 
   const lagnavnSuccess = game.lagnavn === game.quizlingLagnavnTarget;

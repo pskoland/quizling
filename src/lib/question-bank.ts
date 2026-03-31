@@ -1,12 +1,4 @@
-import { neon } from '@neondatabase/serverless';
-
-let _sql: ReturnType<typeof neon> | null = null;
-function getSql() {
-  if (!_sql) {
-    _sql = neon(process.env.DATABASE_URL!);
-  }
-  return _sql!;
-}
+import { getSql } from './db';
 
 export interface QuestionRow {
   id: number;
@@ -58,6 +50,22 @@ export async function getQuestions(
   }
   return (await sql`
     SELECT * FROM question_bank ORDER BY created_at DESC
+  `) as QuestionRow[];
+}
+
+export async function getQuestionsRandom(type: string, count: number, difficulty?: string): Promise<QuestionRow[]> {
+  const sql = getSql();
+  if (difficulty) {
+    return (await sql`
+      SELECT * FROM question_bank
+      WHERE type = ${type} AND difficulty = ${difficulty}
+      ORDER BY RANDOM() LIMIT ${count}
+    `) as QuestionRow[];
+  }
+  return (await sql`
+    SELECT * FROM question_bank
+    WHERE type = ${type}
+    ORDER BY RANDOM() LIMIT ${count}
   `) as QuestionRow[];
 }
 

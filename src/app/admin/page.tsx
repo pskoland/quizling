@@ -185,19 +185,17 @@ function AdminPageInner() {
   const handleBulkAddLagnavn = async () => {
     const lines = lagnavnBulkText.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length === 0) return;
-    let added = 0;
-    for (const name of lines) {
-      try {
-        const res = await fetch('/api/admin/lagnavn', {
+
+    const results = await Promise.allSettled(
+      lines.map(name =>
+        fetch('/api/admin/lagnavn', {
           method: 'POST',
           headers: authHeaders(),
           body: JSON.stringify({ name }),
-        });
-        if (res.ok) added++;
-      } catch {
-        // skip
-      }
-    }
+        }).then(r => r.ok)
+      )
+    );
+    const added = results.filter(r => r.status === 'fulfilled' && r.value).length;
     setLagnavnBulkText('');
     flash(`Lagt til ${added} lagnavn`);
     fetchLagnavn();
@@ -290,26 +288,20 @@ function AdminPageInner() {
       .filter((l) => l.includes('|'));
     if (lines.length === 0) return;
 
-    let added = 0;
-    for (const line of lines) {
-      const [q, a] = line.split('|').map((s) => s.trim());
-      if (!q || !a) continue;
-      try {
-        const res = await fetch('/api/admin/questions', {
+    const entries = lines
+      .map(line => { const [q, a] = line.split('|').map(s => s.trim()); return q && a ? { q, a } : null; })
+      .filter(Boolean) as { q: string; a: string }[];
+
+    const results = await Promise.allSettled(
+      entries.map(({ q, a }) =>
+        fetch('/api/admin/questions', {
           method: 'POST',
           headers: authHeaders(),
-          body: JSON.stringify({
-            type: bulkType,
-            question: q,
-            answer: a,
-            difficulty: bulkDifficulty,
-          }),
-        });
-        if (res.ok) added++;
-      } catch {
-        // skip failed ones
-      }
-    }
+          body: JSON.stringify({ type: bulkType, question: q, answer: a, difficulty: bulkDifficulty }),
+        }).then(r => r.ok)
+      )
+    );
+    const added = results.filter(r => r.status === 'fulfilled' && r.value).length;
     setBulkText('');
     flash(`Added ${added} question${added !== 1 ? 's' : ''}`);
     fetchQuestions();
