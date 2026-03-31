@@ -184,6 +184,6 @@ export async function deleteQuestion(id: number): Promise<QuestionRow> {
 
 export async function deleteAllQuestions(): Promise<number> {
   const sql = getSql();
-  const rows = await sql`DELETE FROM question_bank RETURNING id`;
+  const rows = (await sql`DELETE FROM question_bank RETURNING id`) as { id: number }[];
   return rows.length;
 }
