@@ -1153,6 +1153,35 @@ describe('game-store', () => {
       const updated = (await getGame(gameCode))!;
       expect(updated.powerWinners[0]).toBe('p-2');
     });
+
+    it('fastest answer wins when multiple players have same distance', async () => {
+      await joinGame(gameCode, 'Bob', 'p-2');
+      await joinGame(gameCode, 'Charlie', 'p-3');
+      await startGame(gameCode, hostId);
+      await processAction(gameCode, { type: 'advance-phase', playerId: hostId });
+      await processAction(gameCode, { type: 'confirm-role', playerId: hostId });
+      await processAction(gameCode, { type: 'confirm-role', playerId: 'p-2' });
+      await processAction(gameCode, { type: 'confirm-role', playerId: 'p-3' });
+      let game = await getGame(gameCode);
+      await processAction(gameCode, { type: 'submit-lagnavn', playerId: hostId, payload: { lagnavn: game!.lagnavnOptions[0] } });
+      await processAction(gameCode, { type: 'advance-phase', playerId: hostId });
+
+      for (let i = 0; i < 3; i++) {
+        await processAction(gameCode, { type: 'submit-quiz-answer', playerId: hostId, payload: { answer: 'x' } });
+        await processAction(gameCode, { type: 'advance-phase', playerId: hostId });
+      }
+
+      game = (await getGame(gameCode))!;
+      const correctAnswer = Number(game!.powerQuestions[0].answer);
+
+      // All three give the exact same answer — first to submit should win
+      await processAction(gameCode, { type: 'submit-power-answer', playerId: 'p-2', payload: { answer: correctAnswer } });
+      await processAction(gameCode, { type: 'submit-power-answer', playerId: hostId, payload: { answer: correctAnswer } });
+      await processAction(gameCode, { type: 'submit-power-answer', playerId: 'p-3', payload: { answer: correctAnswer } });
+
+      const updated = (await getGame(gameCode))!;
+      expect(updated.powerWinners[0]).toBe('p-2');
+    });
   });
 
   describe('getPlayerView fields', () => {

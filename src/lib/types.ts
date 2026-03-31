@@ -60,6 +60,7 @@ export interface GameState {
   currentQuizQ: number;
   quizAnswers: Record<number, string>;
   powerAnswers: Record<number, Record<string, number>>;
+  powerAnswerTimestamps: Record<number, Record<string, number>>;
   powerWinners: Record<number, string>;
   powerPins: Record<string, PowerPin>;
   pinUsedAt: Record<string, number>;

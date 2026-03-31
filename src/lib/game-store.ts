@@ -84,6 +84,7 @@ export async function createGame(hostName: string, hostId: string): Promise<Game
     currentQuizQ: 0,
     quizAnswers: {},
     powerAnswers: { 0: {}, 1: {} },
+    powerAnswerTimestamps: { 0: {}, 1: {} },
     powerWinners: {},
     powerPins: {},
     pinUsedAt: {},
@@ -189,7 +190,9 @@ export async function processAction(code: string, action: GameAction): Promise<G
       const powerMatch = game.phase.match(/^power-q-(\d+)$/);
       const round = powerMatch ? parseInt(powerMatch[1]) : 0;
       if (!game.powerAnswers[round]) game.powerAnswers[round] = {};
+      if (!game.powerAnswerTimestamps[round]) game.powerAnswerTimestamps[round] = {};
       game.powerAnswers[round][action.playerId] = Number(action.payload?.answer);
+      game.powerAnswerTimestamps[round][action.playerId] = Date.now();
       if (Object.keys(game.powerAnswers[round]).length >= game.players.length) {
         calcPowerWinner(game, round);
       }
@@ -299,6 +302,7 @@ export async function processAction(code: string, action: GameAction): Promise<G
       game.currentQuizQ = 0;
       game.quizAnswers = {};
       game.powerAnswers = {};
+      game.powerAnswerTimestamps = {};
       game.powerWinners = {};
       game.powerPins = {};
       game.pinUsedAt = {};
@@ -391,13 +395,18 @@ function advancePhase(game: GameState): void {
 function calcPowerWinner(game: GameState, round: number): void {
   const correctAnswer = Number(game.powerQuestions[round].answer);
   const answers = game.powerAnswers[round];
+  const timestamps = game.powerAnswerTimestamps?.[round] ?? {};
   let winnerId = '';
   let bestDiff = Infinity;
+  let bestTime = Infinity;
 
   for (const [pid, ans] of Object.entries(answers)) {
     const diff = Math.abs(ans - correctAnswer);
-    if (diff < bestDiff) {
+    const time = timestamps[pid] ?? 0;
+    // Closest answer wins; if tied, fastest answer wins
+    if (diff < bestDiff || (diff === bestDiff && time < bestTime)) {
       bestDiff = diff;
+      bestTime = time;
       winnerId = pid;
     }
   }
