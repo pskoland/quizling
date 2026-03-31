@@ -368,6 +368,17 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
         <Btn onClick={onCreateClick}>OPPRETT ROM</Btn>
         <Btn variant="secondary" onClick={onJoinClick}>BLI MED I ROM</Btn>
       </div>
+
+      <div className="mt-auto pt-14 text-center">
+        <a
+          href="https://www.youtube.com/watch?v=Ht9c5eVOIz4&list=PLP075BL7qEkbonoR39C8sm_8nCfE8Ao-d"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block text-[10px] sm:text-[11px] tracking-[2px] text-accent2/70 hover:text-accent2 transition-colors cursor-pointer"
+        >
+          Se sesong 1 av Quizling nå!
+        </a>
+      </div>
     </Screen>
   );
 }
