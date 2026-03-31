@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useGame, GameView } from '@/lib/use-game';
 import { isAnswerCorrect } from '@/lib/fuzzy-match';
+import { APP_VERSION } from '@/lib/version';
 
 // ============ PRIMITIVES ============
 
@@ -381,6 +382,7 @@ function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: (
         <a href="https://saligkaos.no" target="_blank" rel="noopener noreferrer" className="opacity-40 hover:opacity-70 transition-opacity">
           <Image src="/icons/salig_kaos.png.webp" alt="Salig Kaos" width={90} height={25} />
         </a>
+        <span className="text-[9px] tracking-[2px] text-white/10">v{APP_VERSION}</span>
       </div>
     </Screen>
   );
