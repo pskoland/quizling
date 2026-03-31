@@ -13,9 +13,9 @@ function parseCsv(text: string): ImportRow[] {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return [];
 
-  // Detect separator: tab or comma
+  // Detect separator: tab, semicolon, or comma
   const header = lines[0].toLowerCase();
-  const sep = header.includes('\t') ? '\t' : ',';
+  const sep = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ',';
 
   const cols = header.split(sep).map(c => c.replace(/"/g, '').trim());
   const qIdx = cols.indexOf('question');

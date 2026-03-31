@@ -2,8 +2,8 @@ import { NextRequest } from 'next/server';
 import { getQuestions } from '@/lib/question-bank';
 import { checkAdminAuth } from '@/lib/admin-auth';
 
-function escapeCsv(val: string): string {
-  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+function escapeCsv(val: string, sep: string): string {
+  if (val.includes(sep) || val.includes('"') || val.includes('\n')) {
     return `"${val.replace(/"/g, '""')}"`;
   }
   return val;
@@ -18,47 +18,54 @@ export async function GET(request: NextRequest) {
     const format = searchParams.get('format') || 'csv';
     const type = searchParams.get('type') || undefined;
     const difficulty = searchParams.get('difficulty') || undefined;
+    const full = searchParams.get('full') === '1';
 
     const questions = await getQuestions(type, difficulty);
 
-    const headers = ['id', 'type', 'question', 'answer', 'difficulty', 'content_hash', 'times_shown', 'times_correct', 'times_wrong', 'created_at'];
-    const rows = questions.map(q => [
-      String(q.id),
-      q.type,
-      q.question,
-      q.answer,
-      q.difficulty,
-      q.content_hash || '',
-      String(q.times_shown ?? 0),
-      String(q.times_correct ?? 0),
-      String(q.times_wrong ?? 0),
-      q.created_at,
-    ]);
+    // Simple export: just the fields needed for editing/reimporting
+    // Full export: includes stats and metadata
+    const headers = full
+      ? ['id', 'type', 'question', 'answer', 'difficulty', 'times_shown', 'times_correct', 'times_wrong']
+      : ['type', 'question', 'answer', 'difficulty'];
 
-    if (format === 'csv') {
-      const csv = [
-        headers.join(','),
-        ...rows.map(r => r.map(escapeCsv).join(',')),
-      ].join('\n');
+    const rows = questions.map(q => {
+      if (full) {
+        return [
+          String(q.id),
+          q.type,
+          q.question,
+          q.answer,
+          q.difficulty,
+          String(q.times_shown ?? 0),
+          String(q.times_correct ?? 0),
+          String(q.times_wrong ?? 0),
+        ];
+      }
+      return [q.type, q.question, q.answer, q.difficulty];
+    });
 
-      return new Response(csv, {
+    // Use semicolon for CSV (Norwegian Excel default) and tab for Excel
+    const sep = format === 'excel' ? '\t' : ';';
+    const content = [
+      headers.join(sep),
+      ...rows.map(r => r.map(v => escapeCsv(v, sep)).join(sep)),
+    ].join('\n');
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+
+    if (format === 'excel') {
+      return new Response('\uFEFF' + content, {
         headers: {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="questions-${new Date().toISOString().slice(0, 10)}.csv"`,
+          'Content-Type': 'application/vnd.ms-excel; charset=utf-8',
+          'Content-Disposition': `attachment; filename="questions-${dateStr}.xls"`,
         },
       });
     }
 
-    // Excel-compatible TSV (opens directly in Excel)
-    const tsv = [
-      headers.join('\t'),
-      ...rows.map(r => r.join('\t')),
-    ].join('\n');
-
-    return new Response('\uFEFF' + tsv, {
+    return new Response('\uFEFF' + content, {
       headers: {
-        'Content-Type': 'application/vnd.ms-excel; charset=utf-8',
-        'Content-Disposition': `attachment; filename="questions-${new Date().toISOString().slice(0, 10)}.xls"`,
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="questions-${dateStr}.csv"`,
       },
     });
   } catch (e) {
