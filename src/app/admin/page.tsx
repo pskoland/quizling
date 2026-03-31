@@ -85,6 +85,21 @@ function AdminPageInner() {
   const [bulkDifficulty, setBulkDifficulty] = useState('medium');
   const [showBulk, setShowBulk] = useState(false);
 
+  // Export field selection
+  const allExportFields = ['id', 'type', 'question', 'answer', 'difficulty', 'times_shown', 'times_correct', 'times_wrong', 'content_hash', 'created_at'] as const;
+  const exportFieldLabels: Record<string, string> = {
+    id: 'ID', type: 'Type', question: 'Spørsmål', answer: 'Svar', difficulty: 'Vanskelighetsgrad',
+    times_shown: 'Vist', times_correct: 'Riktig', times_wrong: 'Feil', content_hash: 'Hash', created_at: 'Opprettet',
+  };
+  const [exportFields, setExportFields] = useState<string[]>(['type', 'question', 'answer', 'difficulty']);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+
+  const toggleExportField = (field: string) => {
+    setExportFields(prev =>
+      prev.includes(field) ? prev.filter(f => f !== field) : [...prev, field]
+    );
+  };
+
   // CSV Import
   const [importResult, setImportResult] = useState<{ total: number; added: number; skippedDuplicates: number; duplicates: string[]; errors: string[] } | null>(null);
   const [importing, setImporting] = useState(false);
@@ -321,6 +336,7 @@ function AdminPageInner() {
       params.set('format', format);
       if (filterType) params.set('type', filterType);
       if (filterDifficulty) params.set('difficulty', filterDifficulty);
+      if (exportFields.length > 0) params.set('fields', exportFields.join(','));
       const res = await fetch(`/api/admin/questions/export?${params}`, {
         headers: authHeaders(),
       });
@@ -581,19 +597,28 @@ function AdminPageInner() {
         </div>
 
         {/* Export / Import toolbar */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
           <button
             onClick={() => handleExport('csv')}
-            className={`${bebas} px-4 py-2 text-[12px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] transition-all cursor-pointer`}
+            disabled={exportFields.length === 0}
+            className={`${bebas} px-4 py-2 text-[12px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed`}
           >
             EXPORT CSV
           </button>
           <button
             onClick={() => handleExport('excel')}
-            className={`${bebas} px-4 py-2 text-[12px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] transition-all cursor-pointer`}
+            disabled={exportFields.length === 0}
+            className={`${bebas} px-4 py-2 text-[12px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed`}
           >
             EXPORT EXCEL
           </button>
+          <button
+            onClick={() => setShowExportOptions(!showExportOptions)}
+            className={`text-[10px] tracking-[2px] uppercase transition-colors cursor-pointer ${showExportOptions ? 'text-accent2' : 'text-muted hover:text-white'}`}
+          >
+            {showExportOptions ? '- Skjul felter' : '+ Velg felter'}
+          </button>
+          <div className="border-l border-white/[0.08] h-6 mx-1" />
           <label className={`${bebas} px-4 py-2 text-[12px] tracking-[2px] bg-accent2/20 border border-accent2/30 text-accent2 rounded hover:bg-accent2/30 transition-all cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
             {importing ? 'IMPORTERER...' : 'IMPORT CSV'}
             <input
@@ -611,6 +636,47 @@ function AdminPageInner() {
             </div>
           )}
         </div>
+
+        {/* Export field picker */}
+        {showExportOptions && (
+          <div className="mb-6 px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-md">
+            <div className="flex flex-wrap gap-2">
+              {allExportFields.map(field => (
+                <button
+                  key={field}
+                  onClick={() => toggleExportField(field)}
+                  className={`px-3 py-1.5 text-[10px] tracking-[1px] rounded border transition-colors cursor-pointer ${
+                    exportFields.includes(field)
+                      ? 'bg-accent2/20 text-accent2 border-accent2/30'
+                      : 'bg-white/[0.02] text-muted/60 border-white/[0.06] hover:text-white hover:border-white/[0.12]'
+                  }`}
+                >
+                  {exportFieldLabels[field]}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3 mt-2">
+              <button
+                onClick={() => setExportFields(['type', 'question', 'answer', 'difficulty'])}
+                className="text-[10px] tracking-[1px] text-muted/50 hover:text-white transition-colors cursor-pointer"
+              >
+                Standard
+              </button>
+              <button
+                onClick={() => setExportFields([...allExportFields])}
+                className="text-[10px] tracking-[1px] text-muted/50 hover:text-white transition-colors cursor-pointer"
+              >
+                Alle
+              </button>
+              <button
+                onClick={() => setExportFields([])}
+                className="text-[10px] tracking-[1px] text-muted/50 hover:text-white transition-colors cursor-pointer"
+              >
+                Ingen
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Import result details */}
         {importResult && importResult.skippedDuplicates > 0 && (
