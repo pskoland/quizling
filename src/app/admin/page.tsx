@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface Question {
   id: number;
@@ -11,14 +12,49 @@ interface Question {
   created_at: string;
 }
 
+interface LagnavnItem {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+interface GameStatsOverview {
+  totalGames: number;
+  totalPlayers: number;
+  avgScore: number;
+  trofasteWins: number;
+  quizlingWins: number;
+  winRateByMode: { mode: string; total: number; trofaste_wins: number; quizling_wins: number }[];
+  winRateByPlayerCount: { player_count: number; total: number; trofaste_wins: number; quizling_wins: number }[];
+  avgCorrectAnswers: number;
+  avgGameDuration: number;
+  lagnavnSuccessRate: number;
+  recentGames: { game_code: string; mode: string; player_count: number; score: number; winner: string; created_at: string }[];
+}
+
 const bebas = "font-['Gentika']";
 const dm = "font-['Space_Mono']";
 
-export default function AdminPage() {
+function AdminPageInner() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const validTabs = ['questions', 'lagnavn', 'analytics'] as const;
+  type Tab = typeof validTabs[number];
+  const tabFromUrl = searchParams.get('tab') as Tab | null;
+  const [activeTab, setActiveTab] = useState<Tab>(
+    validTabs.includes(tabFromUrl as Tab) ? (tabFromUrl as Tab) : 'questions'
+  );
+
+  const switchTab = (tab: Tab) => {
+    setActiveTab(tab);
+    router.replace(`/admin?tab=${tab}`, { scroll: false });
+  };
+  const [stats, setStats] = useState<GameStatsOverview | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Auth
   const [password, setPassword] = useState(() => {
@@ -52,6 +88,14 @@ export default function AdminPage() {
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  // Lagnavn state
+  const [lagnavnList, setLagnavnList] = useState<LagnavnItem[]>([]);
+  const [lagnavnLoading, setLagnavnLoading] = useState(false);
+  const [newLagnavn, setNewLagnavn] = useState('');
+  const [lagnavnBulkText, setLagnavnBulkText] = useState('');
+  const [showLagnavnBulk, setShowLagnavnBulk] = useState(false);
+  const [deletingLagnavnId, setDeletingLagnavnId] = useState<number | null>(null);
+
   const authHeaders = (): HeadersInit => ({
     'Content-Type': 'application/json',
     'x-admin-password': password,
@@ -83,6 +127,103 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType, filterDifficulty, password]);
 
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      let res = await fetch('/api/admin/stats', { headers: authHeaders() });
+      if (!res.ok) {
+        // Auto-init stats table if it doesn't exist
+        await fetch('/api/admin/stats', { method: 'POST', headers: authHeaders() });
+        res = await fetch('/api/admin/stats', { headers: authHeaders() });
+        if (!res.ok) throw new Error('Failed to fetch stats');
+      }
+      const data = await res.json();
+      setStats(data);
+    } catch {
+      // silently fail
+    } finally {
+      setStatsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [password]);
+
+  const fetchLagnavn = useCallback(async () => {
+    setLagnavnLoading(true);
+    try {
+      const res = await fetch('/api/admin/lagnavn', { headers: authHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch lagnavn');
+      setLagnavnList(await res.json());
+    } catch {
+      // silently fail
+    } finally {
+      setLagnavnLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [password]);
+
+  const handleAddLagnavn = async () => {
+    if (!newLagnavn.trim()) return;
+    try {
+      const res = await fetch('/api/admin/lagnavn', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ name: newLagnavn.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? 'Failed to add');
+        return;
+      }
+      setNewLagnavn('');
+      flash('Lagnavn lagt til');
+      fetchLagnavn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    }
+  };
+
+  const handleBulkAddLagnavn = async () => {
+    const lines = lagnavnBulkText.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    let added = 0;
+    for (const name of lines) {
+      try {
+        const res = await fetch('/api/admin/lagnavn', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ name }),
+        });
+        if (res.ok) added++;
+      } catch {
+        // skip
+      }
+    }
+    setLagnavnBulkText('');
+    flash(`Lagt til ${added} lagnavn`);
+    fetchLagnavn();
+  };
+
+  const handleDeleteLagnavn = async (id: number) => {
+    try {
+      await fetch(`/api/admin/lagnavn/${id}`, { method: 'DELETE', headers: authHeaders() });
+      setDeletingLagnavnId(null);
+      flash('Lagnavn slettet');
+      fetchLagnavn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    }
+  };
+
+  // Auto-login on reload if password is saved
+  useEffect(() => {
+    if (password && !authenticated) {
+      fetch('/api/admin/questions', { headers: { 'Content-Type': 'application/json', 'x-admin-password': password } })
+        .then(res => { if (res.ok) setAuthenticated(true); })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleLogin = async () => {
     setError(null);
     try {
@@ -110,6 +251,14 @@ export default function AdminPage() {
   useEffect(() => {
     if (authenticated) fetchQuestions();
   }, [authenticated, fetchQuestions]);
+
+  useEffect(() => {
+    if (authenticated && activeTab === 'analytics') fetchStats();
+  }, [authenticated, activeTab, fetchStats]);
+
+  useEffect(() => {
+    if (authenticated && activeTab === 'lagnavn') fetchLagnavn();
+  }, [authenticated, activeTab, fetchLagnavn]);
 
   const handleAdd = async () => {
     if (!newQuestion.trim() || !newAnswer.trim()) return;
@@ -292,27 +441,43 @@ export default function AdminPage() {
             >
               QUIZLING ADMIN
             </h1>
-            <span className="text-[10px] tracking-[3px] uppercase text-muted">
-              Question Bank
-            </span>
+            <div className="flex gap-1 ml-4">
+              <button
+                onClick={() => switchTab('questions')}
+                className={`px-3 py-1.5 text-[10px] tracking-[2px] uppercase rounded transition-colors cursor-pointer ${
+                  activeTab === 'questions' ? 'bg-accent2/20 text-accent2 border border-accent2/30' : 'text-muted hover:text-white'
+                }`}
+              >
+                Questions
+              </button>
+              <button
+                onClick={() => switchTab('lagnavn')}
+                className={`px-3 py-1.5 text-[10px] tracking-[2px] uppercase rounded transition-colors cursor-pointer ${
+                  activeTab === 'lagnavn' ? 'bg-accent2/20 text-accent2 border border-accent2/30' : 'text-muted hover:text-white'
+                }`}
+              >
+                Lagnavn
+              </button>
+              <button
+                onClick={() => switchTab('analytics')}
+                className={`px-3 py-1.5 text-[10px] tracking-[2px] uppercase rounded transition-colors cursor-pointer ${
+                  activeTab === 'analytics' ? 'bg-accent2/20 text-accent2 border border-accent2/30' : 'text-muted hover:text-white'
+                }`}
+              >
+                Analytics
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <a
-              href="/"
-              className="text-[11px] tracking-[2px] uppercase text-muted hover:text-white transition-colors"
-            >
-              Back to Game
-            </a>
-            <button
-              onClick={handleInitDb}
-              className={`${bebas} px-4 py-2 text-[13px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] hover:border-white/15 transition-all cursor-pointer`}
-            >
-              INIT DB
-            </button>
-          </div>
+          <a
+            href="/"
+            className="text-[11px] tracking-[2px] uppercase text-muted hover:text-white transition-colors"
+          >
+            Back to Game
+          </a>
         </div>
       </header>
 
+      {activeTab === 'questions' && (
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Alerts */}
         {error && (
@@ -660,6 +825,293 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {activeTab === 'lagnavn' && (
+        <div className="max-w-6xl mx-auto px-6 py-8">
+          {error && (
+            <div className="mb-6 px-4 py-3 bg-danger/10 border border-danger/30 rounded-md text-danger text-sm">
+              {error}
+              <button onClick={() => setError(null)} className="float-right text-danger/60 hover:text-danger cursor-pointer">x</button>
+            </div>
+          )}
+          {success && (
+            <div className="mb-6 px-4 py-3 bg-success/10 border border-success/30 rounded-md text-success text-sm">{success}</div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* List */}
+            <div className="lg:col-span-2">
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 className={`${bebas} text-[22px] tracking-[3px]`} style={{ textShadow: '0 0 20px rgba(139,0,0,0.3)' }}>
+                  LAGNAVN
+                </h2>
+                <span className="text-muted text-xs">{lagnavnList.length} navn</span>
+              </div>
+
+              {lagnavnLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-8 h-8 border-2 border-white/10 border-t-accent2 rounded-full animate-spin" />
+                </div>
+              ) : lagnavnList.length === 0 ? (
+                <div className="py-16 text-center">
+                  <p className="text-muted text-sm mb-1">Ingen lagnavn i banken ennå</p>
+                  <p className="text-muted/60 text-xs">Legg til navn enkeltvis eller bruk bulk-import</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {lagnavnList.map(item => (
+                    <div key={item.id} className="bg-white/[0.03] border border-white/[0.06] rounded-md px-4 py-3 flex items-center justify-between hover:bg-white/[0.05] transition-colors">
+                      <span className="text-sm text-white/90">{item.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted/30 text-[10px]">#{item.id}</span>
+                        {deletingLagnavnId === item.id ? (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleDeleteLagnavn(item.id)}
+                              className="px-2 py-1 text-[10px] tracking-[1px] uppercase bg-danger/20 text-danger border border-danger/30 rounded hover:bg-danger/30 transition-colors cursor-pointer"
+                            >
+                              Slett
+                            </button>
+                            <button
+                              onClick={() => setDeletingLagnavnId(null)}
+                              className="px-2 py-1 text-[10px] tracking-[1px] uppercase text-muted hover:text-white transition-colors cursor-pointer"
+                            >
+                              Avbryt
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeletingLagnavnId(item.id)}
+                            className="p-2 text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors cursor-pointer"
+                            title="Slett"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar: add + bulk */}
+            <div>
+              <h2 className={`${bebas} text-[22px] tracking-[3px] mb-4`} style={{ textShadow: '0 0 20px rgba(139,0,0,0.3)' }}>
+                LEGG TIL
+              </h2>
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-md p-5 space-y-4">
+                <div>
+                  <label className="block text-[10px] tracking-[3px] uppercase text-muted/80 mb-2">Lagnavn</label>
+                  <input
+                    value={newLagnavn}
+                    onChange={e => setNewLagnavn(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddLagnavn()}
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded px-3 py-2.5 text-sm text-white outline-none focus:border-accent2/60 placeholder:text-white/20"
+                    placeholder="F.eks. Fjordfiffen"
+                  />
+                </div>
+                <button
+                  onClick={handleAddLagnavn}
+                  disabled={!newLagnavn.trim()}
+                  className={`w-full ${bebas} py-3 text-[15px] tracking-[3px] bg-accent2 text-white rounded hover:bg-[#cc0000] transition-all cursor-pointer shadow-[0_2px_20px_rgba(139,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] disabled:opacity-30 disabled:cursor-not-allowed`}
+                >
+                  LEGG TIL
+                </button>
+              </div>
+
+              {/* Bulk add */}
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowLagnavnBulk(!showLagnavnBulk)}
+                  className={`${bebas} text-[14px] tracking-[2px] text-muted hover:text-white transition-colors cursor-pointer`}
+                >
+                  {showLagnavnBulk ? '- SKJUL' : '+'} BULK IMPORT
+                </button>
+                {showLagnavnBulk && (
+                  <div className="mt-3 bg-white/[0.03] border border-white/[0.06] rounded-md p-5 space-y-4">
+                    <p className="text-[10px] tracking-[2px] text-muted/60 leading-relaxed">
+                      Ett lagnavn per linje.
+                    </p>
+                    <textarea
+                      value={lagnavnBulkText}
+                      onChange={e => setLagnavnBulkText(e.target.value)}
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded px-3 py-2.5 text-xs text-white outline-none focus:border-accent2/60 resize-none placeholder:text-white/20 leading-relaxed"
+                      rows={10}
+                      placeholder={`Turbo Tansen\nBlåbærbandittene\nNordlys Ninjaene`}
+                    />
+                    <button
+                      onClick={handleBulkAddLagnavn}
+                      disabled={!lagnavnBulkText.trim()}
+                      className={`w-full ${bebas} py-3 text-[15px] tracking-[3px] bg-white/[0.04] border border-white/[0.08] text-white rounded hover:bg-white/[0.07] hover:border-white/15 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed`}
+                    >
+                      IMPORTER
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'analytics' && (
+        <div className="max-w-6xl mx-auto px-6 py-8">
+          {statsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-2 border-white/10 border-t-accent2 rounded-full animate-spin" />
+            </div>
+          ) : !stats ? (
+            <div className="py-16 text-center">
+              <p className="text-muted text-sm">Ingen statistikk tilgjengelig ennå. Spill noen runder så dukker dataen opp her!</p>
+            </div>
+          ) : (
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                {[
+                  { label: 'Spill totalt', value: stats.totalGames, color: 'text-white' },
+                  { label: 'Spillere totalt', value: stats.totalPlayers, color: 'text-white' },
+                  { label: 'Snittpoeng', value: stats.avgScore, color: stats.avgScore >= 0 ? 'text-success' : 'text-danger' },
+                  { label: 'Snitt riktige', value: stats.avgCorrectAnswers, color: 'text-success' },
+                ].map((card, i) => (
+                  <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-md p-5 text-center">
+                    <div className="text-[10px] tracking-[3px] uppercase text-muted/60 mb-2">{card.label}</div>
+                    <div className={`${bebas} text-[32px] ${card.color}`}>{card.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Win rate */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-md p-5">
+                  <div className="text-[10px] tracking-[3px] uppercase text-muted/60 mb-4">Vinnere totalt</div>
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <div className={`${bebas} text-[28px] text-success`}>{stats.trofasteWins}</div>
+                      <div className="text-[10px] text-muted/60">Trofaste</div>
+                    </div>
+                    <div className="text-muted/30">vs</div>
+                    <div className="text-center">
+                      <div className={`${bebas} text-[28px] text-danger`}>{stats.quizlingWins}</div>
+                      <div className="text-[10px] text-muted/60">Quizling</div>
+                    </div>
+                  </div>
+                  {stats.totalGames > 0 && (
+                    <div className="mt-3 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div
+                        className="h-full bg-success rounded-full"
+                        style={{ width: `${(stats.trofasteWins / stats.totalGames) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-md p-5">
+                  <div className="text-[10px] tracking-[3px] uppercase text-muted/60 mb-4">Annet</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted/60">Snitt spilletid</span>
+                      <span className="text-white">{Math.floor(stats.avgGameDuration / 60)}m {stats.avgGameDuration % 60}s</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted/60">Lagnavn suksessrate</span>
+                      <span className="text-white">{stats.lagnavnSuccessRate}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Win rate by mode */}
+              {stats.winRateByMode.length > 0 && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-md p-5 mb-6">
+                  <div className="text-[10px] tracking-[3px] uppercase text-muted/60 mb-4">Per spillmodus</div>
+                  <div className="space-y-3">
+                    {stats.winRateByMode.map(row => (
+                      <div key={row.mode} className="flex items-center gap-4">
+                        <span className={`${bebas} text-[14px] tracking-[2px] w-20 text-white/70 uppercase`}>{row.mode}</span>
+                        <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div
+                            className="h-full bg-success rounded-full"
+                            style={{ width: row.total > 0 ? `${(row.trofaste_wins / row.total) * 100}%` : '0%' }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted/60 w-24 text-right">{row.trofaste_wins}T / {row.quizling_wins}Q ({row.total})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Win rate by player count */}
+              {stats.winRateByPlayerCount.length > 0 && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-md p-5 mb-6">
+                  <div className="text-[10px] tracking-[3px] uppercase text-muted/60 mb-4">Per antall spillere</div>
+                  <div className="space-y-3">
+                    {stats.winRateByPlayerCount.map(row => (
+                      <div key={row.player_count} className="flex items-center gap-4">
+                        <span className="text-sm text-white/70 w-20">{row.player_count} spillere</span>
+                        <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div
+                            className="h-full bg-success rounded-full"
+                            style={{ width: row.total > 0 ? `${(row.trofaste_wins / row.total) * 100}%` : '0%' }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted/60 w-24 text-right">{row.trofaste_wins}T / {row.quizling_wins}Q ({row.total})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent games */}
+              {stats.recentGames.length > 0 && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-md p-5">
+                  <div className="text-[10px] tracking-[3px] uppercase text-muted/60 mb-4">Siste spill</div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-muted/50 text-[10px] tracking-[2px] uppercase">
+                          <th className="text-left pb-3">Kode</th>
+                          <th className="text-left pb-3">Modus</th>
+                          <th className="text-left pb-3">Spillere</th>
+                          <th className="text-left pb-3">Poeng</th>
+                          <th className="text-left pb-3">Vinner</th>
+                          <th className="text-left pb-3">Dato</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats.recentGames.map((g, i) => (
+                          <tr key={i} className="border-t border-white/[0.04]">
+                            <td className="py-2 text-white/60">{g.game_code}</td>
+                            <td className="py-2 text-white/60 uppercase">{g.mode}</td>
+                            <td className="py-2 text-white/60">{g.player_count}</td>
+                            <td className={`py-2 ${g.score >= 0 ? 'text-success' : 'text-danger'}`}>{g.score >= 0 ? '+' : ''}{g.score}</td>
+                            <td className={`py-2 ${g.winner === 'trofaste' ? 'text-success' : 'text-danger'}`}>{g.winner === 'trofaste' ? 'Trofaste' : 'Quizling'}</td>
+                            <td className="py-2 text-muted/40">{new Date(g.created_at).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense>
+      <AdminPageInner />
+    </Suspense>
   );
 }

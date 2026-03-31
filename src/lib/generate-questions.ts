@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getQuestions } from './question-bank';
+import { getLagnavnRandom } from './lagnavn-bank';
 
 interface GeneratedQuestions {
   category: string;
@@ -120,4 +121,27 @@ Svar KUN med gyldig JSON, ingen annen tekst:
   } catch {
     return FALLBACK;
   }
+}
+
+const FALLBACK_LAGNAVN = [
+  'Turbo Tansen', 'Blåbærbandittene', 'Nordlys Ninjaene',
+  'Fjordfiffen', 'Trollstansen', 'Brunostbrødrene',
+  'Kvikklunsj Klubben', 'Sildekongene', 'Polarsirkelen',
+  'Vaffelvandrerne', 'Elgpatruljen', 'Frostansen',
+  'Snøstormerne', 'Pinnekjøttgjengen', 'Rypejakterne',
+];
+
+export async function generateLagnavnOptions(): Promise<string[]> {
+  // 1. Try the lagnavn bank in DB
+  if (process.env.DATABASE_URL) {
+    try {
+      const fromBank = await getLagnavnRandom(5);
+      if (fromBank.length >= 5) return fromBank;
+    } catch {
+      // fall through to hardcoded
+    }
+  }
+
+  // 2. Fall back to hardcoded list
+  return shuffle(FALLBACK_LAGNAVN).slice(0, 5);
 }

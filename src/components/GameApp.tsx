@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useGame, GameView } from '@/lib/use-game';
+import { isAnswerCorrect } from '@/lib/fuzzy-match';
 
 // ============ PRIMITIVES ============
 
@@ -20,19 +21,27 @@ function Spinner() {
 function Logo() {
   return (
     <div className="text-center">
+      <div className="mb-3 flex justify-center">
+        <Image
+          src="/icons/Quizling_hovedikon.png"
+          alt=""
+          width={36}
+          height={58}
+          className="w-7 sm:w-8 h-auto opacity-80"
+        />
+      </div>
       <div className="mb-6 flex justify-center">
         <div className="w-12 h-px bg-gradient-to-r from-transparent via-accent2/60 to-transparent" />
       </div>
-      <div className="flex justify-center mb-4">
-        <Image src="/icons/Quizling_hovedikon.png" alt="Quizling" width={48} height={48} className="opacity-80" />
-      </div>
       <div className="flex justify-center">
-        <h1
-          className={`${bebas} text-[clamp(48px,13vw,100px)] text-white leading-none whitespace-nowrap`}
-          style={{ textShadow: '0 0 60px rgba(139,0,0,0.6), 0 0 120px rgba(139,0,0,0.2)' }}
-        >
-          QUIZLING
-        </h1>
+        <Image
+          src="/icons/QUIZLING_logo-WHITE-isolated.png"
+          alt="Quizling"
+          width={353}
+          height={64}
+          className="w-[clamp(220px,65vw,340px)] h-auto"
+          priority
+        />
       </div>
       <div className="mt-6 flex justify-center">
         <div className="w-12 h-px bg-gradient-to-r from-transparent via-accent2/60 to-transparent" />
@@ -111,7 +120,7 @@ function Input({
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[9px] tracking-[5px] uppercase text-accent2/80 block mb-2">
+    <span className="text-[11px] tracking-[5px] uppercase text-accent2 block mb-2">
       {children}
     </span>
   );
@@ -126,9 +135,9 @@ function Title({ children, size = 'md' }: { children: React.ReactNode; size?: 's
   );
 }
 
-function Card({ children, className = '', glow, style }: { children: React.ReactNode; className?: string; glow?: boolean; style?: React.CSSProperties }) {
+function Card({ children, className = '', glow, style, onClick }: { children: React.ReactNode; className?: string; glow?: boolean; style?: React.CSSProperties; onClick?: () => void }) {
   return (
-    <div className={`bg-white/[0.03] border border-white/[0.06] rounded-lg p-6 backdrop-blur-sm ${glow ? 'animate-[glowPulse_3s_ease-in-out_infinite]' : ''} ${className}`} style={style}>
+    <div className={`bg-white/[0.03] border border-white/[0.06] rounded-lg p-6 backdrop-blur-sm ${glow ? 'animate-[glowPulse_3s_ease-in-out_infinite]' : ''} ${className}`} style={style} onClick={onClick}>
       {children}
     </div>
   );
@@ -171,17 +180,6 @@ function RoomCode({ code, label }: { code: string; label: string }) {
   );
 }
 
-function Progress({ progress }: { progress: number }) {
-  return (
-    <div className="h-[2px] bg-white/[0.05] rounded-full mb-8 overflow-hidden">
-      <div
-        className="h-full bg-gradient-to-r from-accent2/80 to-accent2 rounded-full transition-all duration-500 ease-out"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
-  );
-}
-
 function Alert({ type, children }: { type: 'info' | 'warning' | 'danger'; children: React.ReactNode }) {
   const styles = {
     info: 'bg-[#3498db]/[0.08] border-[#3498db]/20 text-[#7ec8e3]',
@@ -205,7 +203,7 @@ function Waiting({ text }: { text: string }) {
 }
 
 /** Main layout shell — always horizontally centered, vertically centered when `center` is true */
-function Screen({ children, center, onHome }: { children: React.ReactNode; center?: boolean; onHome?: () => void }) {
+function Screen({ children, center, onHome, onRestart, onManual }: { children: React.ReactNode; center?: boolean; onHome?: () => void; onRestart?: () => void; onManual?: () => void }) {
   return (
     <div className="min-h-dvh w-full flex justify-center">
       <div
@@ -214,6 +212,20 @@ function Screen({ children, center, onHome }: { children: React.ReactNode; cente
         }`}
         style={{ animation: 'fadeUp 0.5s ease' }}
       >
+        {(onRestart || onManual) && (
+          <div className="absolute top-4 left-4 z-20 flex gap-2">
+            {onManual && (
+              <button onClick={onManual} className="text-white/30 hover:text-white/60 transition-colors p-2" title="Brukermanual">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </button>
+            )}
+            {onRestart && (
+              <button onClick={onRestart} className="text-white/30 hover:text-white/60 transition-colors p-2" title="Begynn på nytt">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+              </button>
+            )}
+          </div>
+        )}
         {onHome && (
           <button
             onClick={onHome}
@@ -229,57 +241,132 @@ function Screen({ children, center, onHome }: { children: React.ReactNode; cente
   );
 }
 
-/** Compute progress % based on phase, total questions, and total power questions */
-function getProgress(phase: string, totalQ: number, totalPQ: number): number {
-  // Total steps: lagnavn(2) + quiz(totalQ) + power(totalPQ*2 for q+result) + voting + reveal + fasit + result
-  const totalSteps = 2 + totalQ + totalPQ * 2 + 4;
-  let step = 0;
-
-  if (phase === 'role-reveal') return 3;
-  if (phase === 'lagnavn' || phase === 'lagnavn-confirmed') return 6;
-
-  // Build ordered phase list to compute position
-  // Simpler: just compute a rough percentage based on what phase we're in
-  const powerQMatch = phase.match(/^power-q-(\d+)$/);
-  const powerRMatch = phase.match(/^power-result-(\d+)$/);
-  const quizMatch = phase.match(/^quiz-(\d+)$/);
-
-  if (quizMatch) {
-    step = 3 + parseInt(quizMatch[1]);
-  } else if (powerQMatch) {
-    step = 3 + parseInt(powerQMatch[1]) * 2 + parseInt(powerQMatch[1]);
-  } else if (powerRMatch) {
-    step = 4 + parseInt(powerRMatch[1]) * 2 + parseInt(powerRMatch[1]);
-  } else if (phase === 'voting') return 88;
-  else if (phase === 'reveal') return 93;
-  else if (phase === 'fasit') return 97;
-  else if (phase === 'result') return 100;
-  else return 2;
-
-  return Math.min(85, Math.round(10 + (step / totalSteps) * 78));
-}
-
 // ============ SCREENS ============
 
-function HomeScreen({ onCreateClick, onJoinClick }: { onCreateClick: () => void; onJoinClick: () => void }) {
+function BrukermanualModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-start justify-center overflow-y-auto p-4">
+      <div className="bg-bg border border-white/10 rounded-xl p-6 max-w-[480px] w-full my-8 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-white/40 hover:text-white/80 transition-colors">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+        </button>
+        <div className="text-center mb-6">
+          <Tag>Guide</Tag>
+          <Title size="sm">BRUKERMANUAL</Title>
+        </div>
+        <div className="space-y-4 text-sm text-white/70 leading-relaxed">
+          <div>
+            <h3 className="text-white font-medium mb-1">Hva er Quizling?</h3>
+            <p>Quizling er et samarbeidsspill der laget svarer på quizspørsmål sammen. Samtidig skjuler det seg en Quizling blant spillerne – en sabotør som prøver å påvirke laget til å svare feil.</p>
+          </div>
+          <div>
+            <h3 className="text-white font-medium mb-1">Starte et spill</h3>
+            <p>Trykk «Opprett rom» for å opprette et nytt spillrom. Del den firesifrede romkoden med medspillerne dine. Minst 3 spillere trengs (maks 9).</p>
+          </div>
+          <div>
+            <h3 className="text-white font-medium mb-1">Bli med</h3>
+            <p>Trykk «Bli med i rom», skriv inn romkoden og navnet ditt.</p>
+          </div>
+          <div>
+            <h3 className="text-white font-medium mb-1">Spillmodus</h3>
+            <p>Verten velger kort (4 spørsmål), medium (6 spørsmål) eller lang (10 spørsmål) modus.</p>
+          </div>
+          <div>
+            <h3 className="text-white font-medium mb-1">Maktpinne</h3>
+            <p>Hvit: Se fasit på forrige spørsmål. Blå: Se fasit på siste spørsmål. Svart: Se lagets svar på forrige spørsmål.</p>
+          </div>
+        </div>
+        <div className="mt-6">
+          <Btn variant="secondary" onClick={onClose}>LUKK</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HomeScreen({ onCreateClick, onJoinClick, onManual }: { onCreateClick: () => void; onJoinClick: () => void; onManual: () => void }) {
+  const [showCredits, setShowCredits] = useState(false);
+
   return (
     <Screen center>
+      {/* Credits icon — top right */}
+      <button
+        onClick={() => setShowCredits(true)}
+        className="absolute top-4 right-4 z-20 p-2 text-white/20 hover:text-white/60 transition-colors cursor-pointer"
+        title="Krediteringer"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="8.01"/>
+          <line x1="12" y1="12" x2="12" y2="16"/>
+        </svg>
+      </button>
+
+      {/* Credits modal */}
+      {showCredits && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowCredits(false)}
+        >
+          <div
+            className="bg-[#12030a] border border-white/[0.08] rounded-xl p-8 w-full max-w-xs text-center space-y-5"
+            style={{ animation: 'scaleIn 0.2s ease', boxShadow: '0 0 60px rgba(139,0,0,0.2)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={`${bebas} text-[22px] tracking-[4px] text-white/80`}>KREDITERINGER</div>
+            <div className="space-y-3 text-[11px] tracking-[2px] text-white/50">
+              <div>
+                <div className="text-white/25 uppercase mb-0.5">Idé</div>
+                <div>Kristoffer Wergeland</div>
+              </div>
+              <div>
+                <div className="text-white/25 uppercase mb-0.5">Quiz</div>
+                <div>David Tørre</div>
+              </div>
+              <div>
+                <div className="text-white/25 uppercase mb-0.5">Utvikling</div>
+                <div>Peter Skoland</div>
+              </div>
+            </div>
+            <a href="https://saligkaos.no" target="_blank" rel="noopener noreferrer" className="inline-block opacity-40 hover:opacity-70 transition-opacity">
+              <Image src="/icons/salig_kaos.png.webp" alt="Salig Kaos" width={90} height={25} />
+            </a>
+            <div className="pt-1">
+              <a
+                href="https://www.youtube.com/watch?v=Ht9c5eVOIz4&list=PLP075BL7qEkbonoR39C8sm_8nCfE8Ao-d"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] tracking-[2px] text-accent2/60 hover:text-accent2 transition-colors cursor-pointer"
+              >
+                Se sesong 1 av Quizling →
+              </a>
+            </div>
+            <button
+              onClick={() => setShowCredits(false)}
+              className="mt-2 text-[10px] tracking-[3px] uppercase text-white/20 hover:text-white/50 transition-colors cursor-pointer"
+            >
+              Lukk
+            </button>
+          </div>
+        </div>
+      )}
+
       <Logo />
-      <p className={`text-sm sm:text-base text-white/50 leading-relaxed text-center px-6 mt-8 mb-14 italic ${dm}`}>
-        Kunnskap er makt, men bløff gjør samme nytte
+      <p className={`text-sm sm:text-base text-white/50 leading-relaxed text-center px-6 mt-8 mb-10 italic ${dm}`}>
+        Kunnskap er makt,<br />men bløff gjør samme nytte
       </p>
+      <div className="flex justify-center mb-8">
+        <button
+          onClick={onManual}
+          className="text-[10px] tracking-[3px] uppercase text-muted/60 hover:text-white/60 transition-colors underline underline-offset-4 cursor-pointer"
+        >
+          Brukermanual
+        </button>
+      </div>
       <div className="space-y-4">
         <Btn onClick={onCreateClick}>OPPRETT ROM</Btn>
         <Btn variant="secondary" onClick={onJoinClick}>BLI MED I ROM</Btn>
-      </div>
-
-      <div className="mt-auto pt-14 text-center space-y-3">
-        <p className="text-[9px] sm:text-[10px] tracking-[3px] text-white/50">
-          Ide av Kristoffer Wergeland
-        </p>
-        <a href="https://saligkaos.no" target="_blank" rel="noopener noreferrer" className="inline-block opacity-50 hover:opacity-80 transition-opacity">
-          <Image src="/icons/salig_kaos.png.webp" alt="Salig Kaos" width={100} height={28} />
-        </a>
       </div>
     </Screen>
   );
@@ -295,8 +382,8 @@ function RulesScreen({
   onHome: () => void;
 }) {
   const rules = [
-    { icon: '1', title: 'Roller', text: 'Én spiller er Quizlingen (sabotør), resten er Trofaste. Bare Quizlingen vet hvem som er hvem.' },
-    { icon: '2', title: 'Lagnavn', text: 'Laget velger et lagnavn. Quizlingen har en hemmelig kategori og prøver å påvirke valget.' },
+    { icon: '1', title: 'Roller', text: 'Én spiller (to spillere ved 5 spillere eller mer) er Quizlingen, resten er Trofaste. Bare Quizlingen vet hvem som er hvem.' },
+    { icon: '2', title: 'Lagnavn', text: 'Laget må bli enige om et lagnavn. Velg ett av fem alternativer. Quizlingen har i oppdrag å få laget til å velge et bestemt alternativ.' },
     { icon: '3', title: 'Maktspørsmål', text: 'Alle svarer individuelt med et tall. Den som er nærmest vinner en maktpinne.' },
     { icon: '4', title: 'Fellesspørsmål', text: 'Laget diskuterer og én person skriver svaret. Quizlingen prøver å sabotere uten å bli avslørt.' },
     { icon: '5', title: 'Eliminering', text: 'Etter alle spørsmål stemmer laget på hvem de tror er Quizlingen.' },
@@ -329,7 +416,10 @@ function RulesScreen({
       <div className="flex-1" />
       <div className="mt-8">
         {game.isHost ? (
-          <Btn onClick={onAdvance}>NESTE: ROLLEUTDELING</Btn>
+          <div className="space-y-3">
+            <Btn onClick={onAdvance}>NESTE: ROLLEUTDELING</Btn>
+            <Btn variant="secondary" onClick={onAdvance}>HOPP OVER</Btn>
+          </div>
         ) : (
           <Waiting text="Venter på at verten fortsetter" />
         )}
@@ -397,6 +487,12 @@ function JoinScreen({
   );
 }
 
+function getQuizlingCountForDisplay(playerCount: number, mode: string): number {
+  if (mode === 'short') return 1;
+  if (playerCount >= 5) return 2;
+  return 1;
+}
+
 function LobbyScreen({
   game,
   onStart,
@@ -408,15 +504,16 @@ function LobbyScreen({
   onSetMode: (mode: 'short' | 'medium' | 'long') => void;
   loading: boolean;
 }) {
-  const canStart = game.players.length >= 3;
+  const shortDisabled = game.players.length > 5;
+  const canStart = game.players.length >= 3 && !(game.mode === 'short' && shortDisabled);
   const modes = [
-    { id: 'short' as const, label: 'KORT', desc: '4 spørsmål, 2 makt' },
-    { id: 'medium' as const, label: 'MEDIUM', desc: '6 spørsmål, 2 makt' },
-    { id: 'long' as const, label: 'LANG', desc: '10 spørsmål, 3 makt' },
+    { id: 'short' as const, label: 'KORT', desc: '4 spørsmål, 2 makt', disabled: shortDisabled },
+    { id: 'medium' as const, label: 'MEDIUM', desc: '6 spørsmål, 2 makt', disabled: false },
+    { id: 'long' as const, label: 'LANG', desc: '10 spørsmål, 3 makt', disabled: false },
   ];
   return (
     <Screen>
-      <RoomCode code={game.code} label="Romkode — del med alle" />
+      <RoomCode code={game.code} label="Romkode" />
 
       <div className="flex justify-center mt-6 mb-8">
         <div className="inline-flex items-center gap-2 bg-white/[0.03] rounded-full px-4 py-2 border border-white/[0.06]">
@@ -431,6 +528,9 @@ function LobbyScreen({
         <p className="text-xs text-muted/50 mt-2 tracking-wide">
           {game.players.length} spiller{game.players.length !== 1 ? 'e' : ''} i rommet
         </p>
+        <p className="text-xs text-accent2/50 mt-1 tracking-wide">
+          {getQuizlingCountForDisplay(game.players.length, game.mode)} Quizling{getQuizlingCountForDisplay(game.players.length, game.mode) > 1 ? 'er' : ''} i spillet
+        </p>
       </div>
 
       <PlayerList players={game.players} hostId={game.hostId} />
@@ -438,20 +538,25 @@ function LobbyScreen({
       {/* Mode selector - host only */}
       {game.isHost && (
         <div className="mt-6">
-          <div className="text-[9px] tracking-[4px] uppercase text-muted/50 text-center mb-3">Spillmodus</div>
+          <div className="text-[10px] tracking-[4px] uppercase text-muted/70 text-center mb-3">Spillmodus</div>
           <div className="flex gap-2">
             {modes.map(m => (
               <button
                 key={m.id}
-                onClick={() => onSetMode(m.id)}
-                className={`flex-1 py-3 px-2 rounded-lg border text-center transition-all cursor-pointer ${
-                  game.mode === m.id
+                onClick={() => !m.disabled && onSetMode(m.id)}
+                disabled={m.disabled}
+                className={`flex-1 py-3 px-2 rounded-lg border text-center transition-all ${
+                  m.disabled
+                    ? 'opacity-30 cursor-not-allowed'
+                    : 'cursor-pointer'
+                } ${
+                  game.mode === m.id && !m.disabled
                     ? 'border-accent2/50 bg-accent2/[0.1]'
                     : 'border-white/[0.06] bg-white/[0.02] hover:border-white/10'
                 }`}
               >
-                <div className={`${bebas} text-[15px] tracking-[2px] ${game.mode === m.id ? 'text-white' : 'text-white/60'}`}>{m.label}</div>
-                <div className="text-[9px] text-muted/40 mt-1">{m.desc}</div>
+                <div className={`${bebas} text-[15px] tracking-[2px] ${game.mode === m.id && !m.disabled ? 'text-white' : 'text-white/60'}`}>{m.label}</div>
+                <div className="text-[9px] text-muted/40 mt-1">{m.disabled ? 'Maks 5 spillere' : m.desc}</div>
               </button>
             ))}
           </div>
@@ -485,13 +590,36 @@ function RoleRevealScreen({
   playerId: string;
   onConfirm: () => void;
 }) {
+  const [showRole, setShowRole] = useState(false);
   const isQ = game.isQuizling;
+
+  if (!showRole) {
+    return (
+      <Screen>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="text-center mb-8">
+            <Tag>Rollefordeling</Tag>
+            <Title>GJØR DERE KLARE</Title>
+          </div>
+
+          <Card glow className="text-center w-full">
+            <Alert type="warning">Skjul skjermen din fra de andre spillerne!</Alert>
+          </Card>
+
+          <div className="mt-8 w-full">
+            <Btn onClick={() => setShowRole(true)}>VIS MIN ROLLE</Btn>
+          </div>
+        </div>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <div className="text-center mb-8 mt-4">
-        <Tag>Din rolle</Tag>
-        <Title>DIN ROLLE</Title>
-        <p className="text-xs text-muted/50 mt-2 tracking-wide">Ikke vis dette til andre!</p>
+        <Tag>Hemmelig</Tag>
+        <Title>ROLLEFORDELING</Title>
+        <p className="text-xs text-muted/50 mt-2 tracking-wide">Følg med på din egen skjerm!</p>
       </div>
 
       <Card glow className="text-center relative overflow-hidden">
@@ -515,25 +643,15 @@ function RoleRevealScreen({
         </div>
         <p className="text-sm text-muted/70 leading-relaxed mb-5 relative z-10 px-2" style={{ animation: 'fadeUp 0.5s ease 0.4s both' }}>
           {isQ
-            ? 'Under kan du lese fasiten og den hemmelige kategorien til lagnavnet. Sørg for at laget ditt gjør det så dårlig som mulig, uten å bli avslørt!'
+            ? 'Du får fasiten på hvert spørsmål når det stilles. Sørg for at laget ditt gjør det så dårlig som mulig, uten å bli avslørt!'
             : 'Svar riktig på spørsmålene og eliminer Quizlingen!'}
         </p>
-        {isQ && game.category && (
-          <div className="bg-danger/[0.08] border border-danger/15 rounded-lg p-5 text-left relative z-10 space-y-4" style={{ animation: 'fadeUp 0.5s ease 0.5s both' }}>
-            <div>
-              <div className="text-[9px] tracking-[4px] uppercase text-muted/50 mb-1.5">Hemmelig kategori for lagnavn</div>
-              <div className={`text-xl font-semibold text-danger ${bebas} tracking-[2px]`}>{game.category}</div>
+        {isQ && (
+          <div className="bg-danger/[0.08] border border-danger/15 rounded-lg p-5 text-left relative z-10" style={{ animation: 'fadeUp 0.5s ease 0.5s both' }}>
+            <div className="text-[10px] tracking-[4px] uppercase text-muted/70 mb-1.5">Lagnavn</div>
+            <div className="text-sm text-muted/70 leading-relaxed">
+              Du vil snart se hvilket lagnavn du må få laget til å velge!
             </div>
-            {game.answerSheet && (
-              <div>
-                <div className="text-[9px] tracking-[4px] uppercase text-muted/50 mb-2">Fasit på quizspørsmålene</div>
-                <div className="text-sm text-muted/80 leading-relaxed space-y-1">
-                  {game.answerSheet.map((a, i) => (
-                    <div key={i}><span className="text-white/40">Q{i + 1}:</span> {a}</div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </Card>
@@ -541,7 +659,13 @@ function RoleRevealScreen({
       <div className="flex-1" />
 
       <div className="mt-8">
-        {isQ && <Alert type="danger">Du er Quizlingen! Sabotér laget — men bli ikke avslørt!</Alert>}
+        {isQ && game.fellowQuizlings && game.fellowQuizlings.length > 0 && (
+          <Alert type="danger">
+            {game.fellowQuizlings.join(' og ')} har også rollen som Quizling
+          </Alert>
+        )}
+        {isQ && <Alert type="danger">Du er Quizlingen. Lykke til – det trenger du.</Alert>}
+        <Alert type="info">Alle må følge med på sin egen skjerm til alle har bekreftet rollen sin.</Alert>
         {game.confirmedRoles.includes(playerId) ? (
           <Btn variant="secondary" disabled>BEKREFTET</Btn>
         ) : (
@@ -564,34 +688,69 @@ function LagnavnScreen({
   onSubmit: (lagnavn: string) => void;
   onAdvance: () => void;
 }) {
-  const [lagnavn, setLagnavn] = useState('');
+  const [selected, setSelected] = useState<string | null>(null);
   const confirmed = game.phase === 'lagnavn-confirmed';
+  const options = game.lagnavnOptions ?? [];
 
   return (
     <Screen>
-      <Progress progress={getProgress(game.phase, game.totalQuestions, game.totalPowerQuestions ?? 2)} />
       <div className="text-center mb-8">
         <Tag>Steg 1</Tag>
         <Title>VELG LAGNAVN</Title>
         <p className="text-sm text-muted/50 mt-3 leading-relaxed px-4">
-          Diskuter og bli enige om et lagnavn, men husk Quizlingen har en formening av hva lagnavnet skal være.
+          Laget må bli enige om et av lagnavnene. Diskuter og velg!
         </p>
       </div>
 
+      {/* Quizling target hint - only visible to quizlings */}
+      {game.isQuizling && game.quizlingLagnavnTarget && !confirmed && (
+        <Alert type="danger">
+          Du må få laget til å velge: <strong>{game.quizlingLagnavnTarget}</strong>
+        </Alert>
+      )}
+
       {!confirmed ? (
-        game.isHost ? (
-          <div style={{ animation: 'fadeUp 0.4s ease' }}>
-            <Alert type="info">Du er vert — skriv inn det dere blir enige om. Alle vil kunne se hva du skriver.</Alert>
-            <Input label="Lagets navn" value={lagnavn} onChange={setLagnavn} placeholder="Lagets navn..." maxLength={30} />
-            <Btn onClick={() => onSubmit(lagnavn)} disabled={!lagnavn.trim()}>BEKREFT LAGNAVN</Btn>
+        <>
+          <div className="space-y-2.5 mb-6">
+            {options.map((name, i) => {
+              const isTarget = game.isQuizling && name === game.quizlingLagnavnTarget;
+              return (
+                <div
+                  key={i}
+                  className={`px-5 py-4 bg-white/[0.03] rounded-lg border cursor-pointer transition-all duration-200 text-center ${
+                    selected === name
+                      ? 'border-accent2/50 bg-accent2/[0.08]'
+                      : isTarget
+                        ? 'border-danger/30 bg-danger/[0.04]'
+                        : 'border-white/[0.05] hover:border-white/10'
+                  }`}
+                  onClick={() => game.isHost && setSelected(name)}
+                  style={{ animation: `fadeUp 0.3s ease ${i * 0.05}s both` }}
+                >
+                  <span className={`${bebas} text-[20px] tracking-[3px] ${
+                    selected === name ? 'text-white' : 'text-white/70'
+                  }`}>
+                    {name}
+                  </span>
+                  {isTarget && (
+                    <div className="text-[9px] text-danger/60 mt-1 tracking-[2px] uppercase">Ditt mål</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        ) : (
-          <Waiting text="Venter på at verten velger lagnavn" />
-        )
+          {game.isHost ? (
+            <Btn onClick={() => selected && onSubmit(selected)} disabled={!selected}>
+              BEKREFT LAGNAVN
+            </Btn>
+          ) : (
+            <Waiting text="Diskuter og vent på at verten velger" />
+          )}
+        </>
       ) : (
         <div style={{ animation: 'scaleIn 0.4s ease' }}>
           <Card className="text-center mb-6">
-            <div className="text-[9px] tracking-[5px] uppercase text-muted/50 mb-3">Lagets navn</div>
+            <div className="text-[10px] tracking-[5px] uppercase text-muted/70 mb-3">Lagets navn</div>
             <div className={`${bebas} text-[32px] tracking-[4px] text-white`}>
               {game.lagnavn}
             </div>
@@ -610,7 +769,7 @@ function LagnavnScreen({
 function QuestionCard({ label, text }: { label: string; text: string }) {
   return (
     <Card className="border-t-2 border-t-accent2/50 mb-6">
-      <div className="text-[9px] tracking-[4px] uppercase text-muted/50 mb-3">{label}</div>
+      <div className="text-[10px] tracking-[4px] uppercase text-muted/70 mb-3">{label}</div>
       <div className="text-[17px] font-medium leading-relaxed text-white/90">{text}</div>
     </Card>
   );
@@ -633,12 +792,18 @@ function PowerQuestionScreen({
 
   return (
     <Screen>
-      <Progress progress={getProgress(game.phase, game.totalQuestions, game.totalPowerQuestions ?? 2)} />
       <div className="text-center mb-8">
         <Tag>Maktspørsmål {round + 1}</Tag>
         <Title>MAKTSPØRSMÅL</Title>
-        <p className="text-sm text-muted/50 mt-3">Besvares individuelt! Nærmest vinner.</p>
+        <p className="text-sm text-muted/50 mt-3">Besvares individuelt! Den som svarer nærmest vinner.</p>
       </div>
+
+      <Card className="mb-4 border-l-2 border-l-gold/40">
+        <div className="text-sm text-muted/60 leading-relaxed space-y-1.5">
+          <p>Alle svarer individuelt med et tall.</p>
+          <p>Den som svarer nærmest vinner en <span className="text-gold/80 font-medium">maktpinne</span> som kan gi fordeler i quizen.</p>
+        </div>
+      </Card>
 
       {pq && <QuestionCard label={`Maktspørsmål ${pq.number} av ${game.totalPowerQuestions ?? 2}`} text={pq.question} />}
 
@@ -668,13 +833,12 @@ function PowerResultScreen({
   const round = roundMatch ? parseInt(roundMatch[1]) : 0;
   const winnerId = game.powerWinners[round];
   const winner = game.players.find(p => p.id === winnerId);
-  const isWinner = game.wonPowerRound === round;
+  const isWinner = game.wonCurrentPowerRound === true;
   const answers = game.powerAnswers[round] ?? {};
   const correctAnswer = game.allPowerQuestions?.[round]?.answer;
 
   return (
     <Screen>
-      <Progress progress={getProgress(game.phase, game.totalQuestions, game.totalPowerQuestions ?? 2)} />
       <div className="text-center mb-8 mt-4">
         <Tag>Resultat</Tag>
         <Title>MAKTPINNE</Title>
@@ -689,7 +853,7 @@ function PowerResultScreen({
 
       {/* Answer table */}
       <Card className="mb-6">
-        <div className="text-[9px] tracking-[4px] uppercase text-muted/50 mb-4">Alle svar</div>
+        <div className="text-[10px] tracking-[4px] uppercase text-muted/70 mb-4">Alle svar</div>
         {correctAnswer && (
           <div className="flex justify-between items-center pb-3 mb-3 border-b border-white/[0.06]">
             <span className="text-xs text-muted/50">Fasit</span>
@@ -726,8 +890,13 @@ function PowerResultScreen({
           <div className="space-y-3 mb-6">
             {[
               { id: 'blue', color: 'bg-[#3498db]', shadow: 'shadow-[0_0_12px_rgba(52,152,219,0.4)]', name: 'Blå pinne', desc: 'Se fasiten på det siste spørsmålet i quizen.' },
-              { id: 'white', color: 'bg-white/80', shadow: 'shadow-[0_0_12px_rgba(255,255,255,0.3)]', name: 'Hvit pinne', desc: 'Se fasiten på det forrige spørsmålet laget svarte på.' },
-            ].map(pin => (
+              { id: 'white', color: 'bg-white/80', shadow: 'shadow-[0_0_12px_rgba(255,255,255,0.3)]', name: 'Hvit pinne', desc: 'Se fasiten på forrige spørsmål (ikke svaret som ble avlevert). Bruk én gang.' },
+              { id: 'black', color: 'bg-[#1a1a2e]', shadow: 'shadow-[0_0_12px_rgba(26,26,46,0.6)]', name: 'Svart pinne', desc: 'Se hva laget svarte på et valgfritt spørsmål. Brukes før eliminering.' },
+            ].filter(pin => {
+              if (pin.id === 'black' && !game.isLastPowerRound) return false;
+              if (game.usedPinTypes?.includes(pin.id)) return false;
+              return true;
+            }).map(pin => (
               <div
                 key={pin.id}
                 className={`flex items-start gap-4 bg-white/[0.03] rounded-lg p-5 border cursor-pointer transition-all duration-200 ${
@@ -751,9 +920,11 @@ function PowerResultScreen({
 
       <div className="mt-6">
         {game.isHost ? (
-          <Btn onClick={onAdvance}>NESTE</Btn>
+          <Btn onClick={onAdvance} disabled={!!(winnerId && !game.powerPins[winnerId])}>
+            {winnerId && !game.powerPins[winnerId] ? 'VENTER PÅ VALG' : 'NESTE'}
+          </Btn>
         ) : (
-          <Waiting text="Venter" />
+          <Waiting text="Venter på valg" />
         )}
       </div>
     </Screen>
@@ -765,11 +936,13 @@ function QuizQuestionScreen({
   playerId,
   onSubmit,
   onAdvance,
+  onUsePin,
 }: {
   game: GameView;
   playerId: string;
   onSubmit: (answer: string) => void;
   onAdvance: () => void;
+  onUsePin: () => void;
 }) {
   const [answer, setAnswer] = useState('');
   const q = game.currentQuestion;
@@ -777,30 +950,69 @@ function QuizQuestionScreen({
   const answered = game.quizAnswers[qi] !== undefined;
   const totalQ = game.totalQuestions;
 
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!game.questionStartedAt) return;
+    const tick = () => setElapsed(Math.floor((Date.now() - game.questionStartedAt!) / 1000));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [game.questionStartedAt]);
+
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+
   return (
     <Screen>
-      <Progress progress={getProgress(game.phase, totalQ, game.totalPowerQuestions ?? 2)} />
       <div className="text-center mb-8">
         <Tag>Spørsmål {q?.number ?? 1} av {totalQ}</Tag>
         <Title>FELLESSPØRSMÅL</Title>
-        <p className="text-sm text-muted/50 mt-3">Diskuter i laget. Det er kun den som skriver som faktisk blir svart.</p>
+        <p className="text-sm text-muted/50 mt-3">Diskuter i laget og bli enige om et svar. Bare én av dere vet hva som faktisk leveres.</p>
+        {game.questionStartedAt && !answered && (
+          <div className="text-[10px] tracking-[2px] text-muted/40 mt-2">
+            {minutes > 0 ? `${minutes}m ${seconds.toString().padStart(2, '0')}s` : `${seconds}s`}
+          </div>
+        )}
       </div>
 
       {q && <QuestionCard label={`Spørsmål ${q.number} av ${totalQ}`} text={q.question} />}
 
-      {/* Auto pin reveal */}
+      {game.isQuizling && game.currentAnswerForQuizling && (
+        <Alert type="danger">
+          Fasiten: {game.currentAnswerForQuizling}
+        </Alert>
+      )}
+
+      {/* Pin: auto-reveal for blue, on-demand button for white/black */}
       {game.pinReveal && (
         <Alert type="warning">
-          {game.myPin === 'blue'
+          {game.pinType === 'blue'
             ? `Blå pinne: Fasiten på dette spørsmålet er «${game.pinReveal}»`
-            : `Hvit pinne: Fasiten på forrige spørsmål var «${game.pinReveal}»`}
+            : game.pinType === 'white'
+            ? `Hvit pinne: Fasiten på forrige spørsmål var «${game.pinReveal}»`
+            : `Svart pinne: Laget svarte «${game.pinReveal}» på forrige spørsmål`}
         </Alert>
+      )}
+      {game.canUsePin && game.myPin === 'white' && (
+        <div className="mb-4" style={{ animation: 'fadeUp 0.3s ease' }}>
+          {qi === totalQ - 1 && (
+            <div className="text-[11px] text-gold/70 text-center mb-2 tracking-[1px]">
+              Siste sjanse til å bruke pinnen!
+            </div>
+          )}
+          <button
+            onClick={() => onUsePin()}
+            className={`w-full py-3 px-5 rounded-lg border ${qi === totalQ - 1 ? 'border-gold/60 bg-gold/[0.12] animate-[glowPulse_3s_ease-in-out_infinite]' : 'border-gold/40 bg-gold/[0.08]'} text-gold/90 text-sm ${bebas} tracking-[2px] cursor-pointer hover:bg-gold/[0.15] transition-all`}
+          >
+            BRUK HVIT PINNE — SE FASIT PÅ FORRIGE
+          </button>
+        </div>
       )}
 
       {!answered ? (
         game.isWriter ? (
           <div style={{ animation: 'fadeUp 0.3s ease' }}>
-            <Alert type="warning">Du er skriveren! Bare du ser svaret.</Alert>
+            <Alert type="warning">Du skriver svaret. De andre må stole på deg.</Alert>
             <div className="mb-7">
               <label className="block text-[10px] sm:text-[11px] tracking-[4px] uppercase text-muted/80 mb-3 text-center">Lagets svar</label>
               <textarea
@@ -840,41 +1052,80 @@ function VotingScreen({
   game,
   playerId,
   onVote,
+  onUseBlackPin,
 }: {
   game: GameView;
   playerId: string;
-  onVote: (targetId: string) => void;
+  onVote: (targetIds: string[]) => void;
+  onUseBlackPin: (questionIndex: number) => void;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
-  const hasVoted = game.votes[playerId] !== undefined;
-  const totalVotes = Object.keys(game.votes).length;
+  const [selected, setSelected] = useState<string[]>([]);
+  const myVotes = game.votes[playerId];
+  const hasVoted = Array.isArray(myVotes) && myVotes.length > 0;
+  const totalVotes = Object.values(game.votes).filter(v => Array.isArray(v) && v.length > 0).length;
 
   return (
     <Screen>
-      <Progress progress={getProgress(game.phase, game.totalQuestions, game.totalPowerQuestions ?? 2)} />
       <div className="text-center mb-8">
         <Tag>Eliminering</Tag>
         <Title>ELIMINERING</Title>
-        <p className="text-sm text-muted/50 mt-3">Hvem er Quizlingen?</p>
+        <p className="text-sm text-muted/50 mt-3">
+          {game.quizlingCount > 1 ? `Hvem er de ${game.quizlingCount} Quizlingene?` : 'Hvem er Quizlingen?'}
+        </p>
+        <p className="text-xs text-muted/40 mt-2 tracking-wide">
+          Velg {game.quizlingCount} {game.quizlingCount > 1 ? 'spillere' : 'spiller'}
+        </p>
       </div>
+
+      {/* Black pin: choose which question to see team answer for */}
+      {game.canUsePin && game.myPin === 'black' && (
+        <Card className="mb-6 border-l-2 border-l-gold/40" style={{ animation: 'fadeUp 0.3s ease' }}>
+          <div className={`text-[10px] tracking-[4px] uppercase text-gold/70 mb-3 ${bebas}`}>Svart maktpinne</div>
+          <p className="text-sm text-muted/60 mb-4">Velg et spørsmål for å se lagets svar:</p>
+          <div className="space-y-2">
+            {Array.from({ length: game.totalQuestions }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => onUseBlackPin(i)}
+                className="w-full text-left px-4 py-2.5 bg-white/[0.03] rounded border border-white/[0.06] hover:border-gold/30 hover:bg-gold/[0.05] transition-all cursor-pointer text-sm text-white/70"
+              >
+                Spørsmål {i + 1}
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Black pin reveal */}
+      {game.blackPinReveal && game.blackPinQuestionIndex !== undefined && (
+        <Alert type="warning">
+          Svart pinne: Lagets svar på spørsmål {game.blackPinQuestionIndex + 1} var «{game.blackPinReveal}»
+        </Alert>
+      )}
 
       {!hasVoted ? (
         <>
           <div className="space-y-2.5 mb-6">
-            {game.players.map((p, i) => (
+            {game.players.filter(p => p.id !== playerId).map((p, i) => (
               <div
                 key={p.id}
                 className={`flex items-center gap-4 px-5 py-4 bg-white/[0.03] rounded-lg border cursor-pointer transition-all duration-200 ${
-                  selected === p.id ? 'border-accent2/50 bg-accent2/[0.08]' : 'border-white/[0.05] hover:border-white/10'
+                  selected.includes(p.id) ? 'border-accent2/50 bg-accent2/[0.08]' : 'border-white/[0.05] hover:border-white/10'
                 }`}
-                onClick={() => setSelected(p.id)}
+                onClick={() => setSelected(prev =>
+                  prev.includes(p.id)
+                    ? prev.filter(id => id !== p.id)
+                    : prev.length < game.quizlingCount
+                      ? [...prev, p.id]
+                      : prev
+                )}
                 style={{ animation: `fadeUp 0.3s ease ${i * 0.05}s both` }}
               >
                 <div className="w-10 h-10 rounded-full bg-accent2/15 border border-accent2/25 flex items-center justify-center text-sm text-accent2/80 font-medium">
                   {p.name[0].toUpperCase()}
                 </div>
                 <span className="text-[15px] font-medium text-white/90">{p.name}</span>
-                {selected === p.id && (
+                {selected.includes(p.id) && (
                   <div className="ml-auto w-5 h-5 rounded-full bg-accent2 flex items-center justify-center">
                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </div>
@@ -882,7 +1133,9 @@ function VotingScreen({
               </div>
             ))}
           </div>
-          <Btn onClick={() => selected && onVote(selected)} disabled={!selected}>STEM</Btn>
+          <Btn onClick={() => selected.length === game.quizlingCount && onVote(selected)} disabled={selected.length !== game.quizlingCount}>
+            STEM ({selected.length}/{game.quizlingCount})
+          </Btn>
         </>
       ) : (
         <Waiting text={`Venter på alle stemmer (${totalVotes}/${game.totalPlayers})`} />
@@ -894,19 +1147,48 @@ function VotingScreen({
 function RevealScreen({
   game,
   onAdvance,
+  onAdvanceRevealStep,
 }: {
   game: GameView;
   onAdvance: () => void;
+  onAdvanceRevealStep: () => void;
 }) {
-  const quizling = game.players.find(p => p.id === game.quizlingId);
+  const step = game.revealStep ?? 0;
+  const quizlingIds = game.quizlingIds ?? [];
+  const quizlingCount = game.quizlingCount ?? 1;
+  const quizlings = game.players.filter(p => quizlingIds.includes(p.id));
 
   const voteCounts: Record<string, number> = {};
-  Object.values(game.votes).forEach(targetId => {
-    voteCounts[targetId] = (voteCounts[targetId] ?? 0) + 1;
+  Object.values(game.votes).forEach(targetIds => {
+    targetIds.forEach(targetId => {
+      voteCounts[targetId] = (voteCounts[targetId] ?? 0) + 1;
+    });
   });
-  const maxVotes = Math.max(...Object.values(voteCounts), 0);
-  const eliminated = Object.entries(voteCounts).find(([, c]) => c === maxVotes);
-  const correctElimination = eliminated?.[0] === game.quizlingId;
+
+  const sorted = Object.entries(voteCounts).sort(([, a], [, b]) => b - a);
+  const eliminated: [string, number][] = [];
+  for (let i = 0; i < sorted.length && eliminated.length < quizlingCount; i++) {
+    if (eliminated.length === quizlingCount - 1) {
+      const tiedCount = sorted.filter(([, c]) => c === sorted[i][1]).length;
+      const alreadyAtThisCount = eliminated.filter(([, c]) => c === sorted[i][1]).length;
+      if (tiedCount - alreadyAtThisCount > 1) break;
+    }
+    eliminated.push(sorted[i]);
+  }
+
+  const eliminatedIds = eliminated.map(([id]) => id);
+  const eliminatedPlayers = eliminated.map(([id, votes]) => ({
+    player: game.players.find(p => p.id === id),
+    votes,
+    isQuizling: quizlingIds.includes(id),
+  }));
+  const correctlyEliminated = eliminatedIds.filter(id => quizlingIds.includes(id));
+  const hasElimination = eliminated.length > 0;
+
+  // Check if quizling's lagnavn matched the real lagnavn
+  const quizlingSucceededLagnavn = game.lagnavn ? true : false;
+
+  const isMulti = quizlingCount > 1;
 
   return (
     <Screen center>
@@ -915,39 +1197,119 @@ function RevealScreen({
         <Title>AVSLØRING</Title>
       </div>
 
-      {eliminated && (
+      {/* Step 0: Hidden elimination name */}
+      {step === 0 && (
         <Card className="text-center mb-6 mt-8" style={{ animation: 'fadeUp 0.5s ease 0.3s both' }}>
-          <div className="text-xs text-muted/40 mb-2 tracking-wide">Laget stemte ut</div>
-          <div className={`${bebas} text-[28px] tracking-[4px]`}>
-            {game.players.find(p => p.id === eliminated[0])?.name ?? 'Ingen'}
+          <div className="text-xs text-muted/40 mb-2 tracking-wide">
+            {hasElimination ? (isMulti ? 'De som ble eliminert er...' : 'Den som ble eliminert er...') : 'Resultat av avstemningen...'}
           </div>
-          <div className="text-sm text-muted/50 mt-2">
-            med {maxVotes} {maxVotes === 1 ? 'stemme' : 'stemmer'}
+          <div className={`${bebas} text-[36px] tracking-[5px] text-white/20`}>???</div>
+        </Card>
+      )}
+
+      {/* Step 1: Show eliminated players */}
+      {step >= 1 && (
+        <>
+          {hasElimination ? (
+            <Card className="text-center mb-6 mt-8" style={{ animation: step === 1 ? 'fadeUp 0.5s ease 0.1s both' : undefined }}>
+              <div className="text-xs text-muted/40 mb-2 tracking-wide">Laget stemte ut</div>
+              {eliminatedPlayers.map(({ player, votes }) => (
+                <div key={player?.id ?? 'unknown'} className="mb-2">
+                  <div className={`${bebas} text-[28px] tracking-[4px]`}>
+                    {player?.name ?? 'Ukjent'}
+                  </div>
+                  <div className="text-sm text-muted/50">
+                    med {votes} {votes === 1 ? 'stemme' : 'stemmer'}
+                  </div>
+                </div>
+              ))}
+            </Card>
+          ) : (
+            <Card className="text-center mb-6 mt-8" style={{ animation: step === 1 ? 'fadeUp 0.5s ease 0.1s both' : undefined }}>
+              <div className="text-xs text-muted/40 mb-2 tracking-wide">Ingen ble stemt ut</div>
+              <div className={`${bebas} text-[22px] tracking-[3px] text-danger`}>
+                Stemmene var delte — ingen eliminering!
+              </div>
+              <div className="text-sm text-muted/50 mt-2">
+                {isMulti ? 'Quizlingene slipper unna med -3 poeng per stykk for laget' : 'Quizlingen slipper unna med -3 poeng for laget'}
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* Step 2: Hidden quizling name */}
+      {step === 2 && (
+        <Card glow className="text-center mb-6" style={{ animation: 'fadeUp 0.5s ease 0.1s both' }}>
+          <div className="text-xs text-muted/40 mb-3 tracking-wide">{isMulti ? 'Quizlingene er...' : 'Quizlingen er...'}</div>
+          <div className="flex justify-center mb-3">
+            <Image src="/icons/Quizling_hovedikon.png" alt="Quizling" width={48} height={48} className="opacity-30" />
+          </div>
+          <div className={`${bebas} text-[36px] tracking-[5px] text-white/20`}>???</div>
+        </Card>
+      )}
+
+      {/* Step 3+: Quizlings revealed */}
+      {step >= 3 && (
+        <Card glow className="text-center mb-6" style={{ animation: step === 3 ? 'fadeUp 0.6s ease 0.1s both' : undefined }}>
+          <div className="text-xs text-muted/40 mb-3 tracking-wide">{isMulti ? 'Quizlingene var' : 'Quizlingen var'}</div>
+          <div className="flex justify-center mb-3">
+            <Image src="/icons/Quizling_hovedikon.png" alt="Quizling" width={48} height={48} />
+          </div>
+          <div
+            className={`${bebas} text-[36px] tracking-[5px] text-danger`}
+            style={{ textShadow: '0 0 30px rgba(255,68,68,0.4)' }}
+          >
+            {quizlings.map(q => q.name).join(', ') || 'Ukjent'}
+          </div>
+          <div className={`mt-3 text-sm font-semibold ${correctlyEliminated.length === quizlingCount ? 'text-success' : 'text-danger'}`}>
+            {correctlyEliminated.length === quizlingCount
+              ? (isMulti ? 'Laget fant alle Quizlingene!' : 'Laget fant Quizlingen!')
+              : hasElimination
+                ? (correctlyEliminated.length > 0
+                  ? `Laget fant ${correctlyEliminated.length} av ${quizlingCount} ${isMulti ? 'Quizlinger' : 'Quizlingen'}!`
+                  : (isMulti ? 'Quizlingene slapp unna!' : 'Quizlingen slapp unna!'))
+                : (isMulti ? 'Ingen ble eliminert — Quizlingene vant avstemningen!' : 'Ingen ble eliminert — Quizlingen vant avstemningen!')}
           </div>
         </Card>
       )}
 
-      <Card glow className="text-center mb-6" style={{ animation: 'fadeUp 0.6s ease 0.8s both' }}>
-        <div className="text-xs text-muted/40 mb-3 tracking-wide">Quizlingen var</div>
-        <div className="flex justify-center mb-3">
-          <Image src="/icons/Quizling_Quizlingikon.png" alt="Quizling" width={48} height={48} />
-        </div>
-        <div
-          className={`${bebas} text-[36px] tracking-[5px] text-danger`}
-          style={{ textShadow: '0 0 30px rgba(255,68,68,0.4)' }}
-        >
-          {quizling?.name ?? 'Ukjent'}
-        </div>
-        <div className={`mt-3 text-sm font-semibold ${correctElimination ? 'text-success' : 'text-danger'}`}>
-          {correctElimination ? 'Laget fant Quizlingen!' : 'Quizlingen slapp unna!'}
-        </div>
-      </Card>
+      {/* Step 4: Lagnavn + category card */}
+      {step >= 4 && (
+        <Card className="text-center mb-6" style={{ animation: step === 4 ? 'fadeUp 0.5s ease 0.1s both' : undefined }}>
+          <div className="text-xs text-muted/40 mb-2 tracking-wide">Lagnavn</div>
+          <div className={`${bebas} text-[24px] tracking-[3px] mb-3`}>
+            {game.lagnavn ?? 'Ikke valgt'}
+          </div>
+          {game.quizlingLagnavnTarget && (
+            <>
+              <div className="w-full h-px bg-white/[0.06] my-3" />
+              <div className="text-xs text-muted/40 mb-2 tracking-wide">Quizlingen skulle få laget til å velge</div>
+              <div className={`${bebas} text-[20px] tracking-[2px] text-accent2`}>
+                {game.quizlingLagnavnTarget}
+              </div>
+              <div className={`text-sm mt-2 font-semibold ${game.quizlingLagnavnSuccess ? 'text-danger' : 'text-success'}`}>
+                {game.quizlingLagnavnSuccess ? 'Quizlingen klarte det!' : 'Quizlingen klarte det ikke!'}
+              </div>
+            </>
+          )}
+        </Card>
+      )}
 
-      <div className="mt-8" style={{ animation: 'fadeUp 0.4s ease 1.2s both' }}>
-        {game.isHost ? (
-          <Btn onClick={onAdvance}>SE FASIT</Btn>
+      {/* Advance button */}
+      <div className="mt-8" style={{ animation: 'fadeUp 0.4s ease 0.3s both' }}>
+        {step >= 4 ? (
+          game.isHost ? (
+            <Btn onClick={onAdvance}>SE RESULTAT</Btn>
+          ) : (
+            <Waiting text="Venter på verten" />
+          )
         ) : (
-          <Waiting text="Venter på verten" />
+          game.isHost ? (
+            <Btn onClick={onAdvanceRevealStep}>NESTE</Btn>
+          ) : (
+            <Waiting text="Venter på verten" />
+          )
         )}
       </div>
     </Screen>
@@ -957,47 +1319,88 @@ function RevealScreen({
 function FasitScreen({
   game,
   onAdvance,
+  onRevealQuestion,
 }: {
   game: GameView;
   onAdvance: () => void;
+  onRevealQuestion: () => void;
 }) {
+  const revealedCount = game.fasitRevealCount ?? 0;
+  const totalQ = game.allQuestions?.length ?? 0;
+  // 3 steps per question: 0=question only, 1=+fasit, 2=+team answer
+  const questionIndex = Math.floor(revealedCount / 3);
+  const stepInQuestion = revealedCount % 3; // 0, 1, or 2
+  const allRevealed = questionIndex >= totalQ;
+
   return (
     <Screen>
-      <Progress progress={getProgress(game.phase, game.totalQuestions, game.totalPowerQuestions ?? 2)} />
       <div className="text-center mb-8">
         <Tag>Fasit</Tag>
         <Title>SVARENE</Title>
+        <p className="text-sm text-muted/50 mt-3">
+          {game.isHost ? 'Trykk for å avsløre hvert spørsmål' : 'Verten avslører spørsmålene'}
+        </p>
       </div>
 
       <div className="space-y-3">
         {game.allQuestions?.map((q, i) => {
+          if (i > questionIndex) return null;
+
+          const fullyRevealed = i < questionIndex;
+          const isCurrent = i === questionIndex && !allRevealed;
           const playerAnswer = game.quizAnswers[i];
-          const correct = playerAnswer?.toLowerCase().includes(q.answer.toLowerCase());
+          const correct = isAnswerCorrect(playerAnswer, q.answer);
+
+          // Determine what to show for this question
+          const showFasit = fullyRevealed || (isCurrent && stepInQuestion >= 1);
+          const showTeamAnswer = fullyRevealed || (isCurrent && stepInQuestion >= 2);
+          const isClickable = isCurrent && game.isHost;
+
+          // What does the next click prompt say?
+          let clickPrompt = '';
+          if (isCurrent) {
+            if (stepInQuestion === 0) clickPrompt = 'TRYKK FOR Å SE FASIT';
+            else if (stepInQuestion === 1) clickPrompt = 'TRYKK FOR Å SE LAGETS SVAR';
+            else clickPrompt = 'TRYKK FOR NESTE SPØRSMÅL';
+          }
+
           return (
-            <Card key={i} className={`border-l-2 ${correct ? 'border-l-success/50' : 'border-l-danger/50'}`}>
-              <div className="text-[9px] tracking-[4px] uppercase text-muted/40 mb-2">Spørsmål {i + 1}</div>
+            <Card
+              key={i}
+              className={`border-l-2 ${showTeamAnswer ? (correct ? 'border-l-success/50' : 'border-l-danger/50') : showFasit ? 'border-l-gold/40' : 'border-l-white/20'} ${isClickable ? 'cursor-pointer hover:bg-white/[0.05]' : ''} transition-colors`}
+              style={isCurrent && stepInQuestion > 0 ? { animation: 'fadeUp 0.3s ease' } : undefined}
+              onClick={isClickable ? onRevealQuestion : undefined}
+            >
+              <div className="text-[10px] tracking-[4px] uppercase text-muted/60 mb-2">Spørsmål {i + 1}</div>
               <div className="text-[15px] font-medium text-white/90 mb-3">{q.question}</div>
               <div className="flex flex-col gap-1.5 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted/50 text-xs">Fasit:</span>
-                  <span className="text-success font-medium">{q.answer}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted/50 text-xs">Lagets svar:</span>
-                  <span className={correct ? 'text-success' : 'text-danger'}>
-                    {playerAnswer ?? '—'}
-                  </span>
-                </div>
+                {showFasit && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted/70 text-xs">Fasit:</span>
+                    <span className="text-success font-medium">{q.answer}</span>
+                  </div>
+                )}
+                {showTeamAnswer && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted/70 text-xs">Lagets svar:</span>
+                    <span className={correct ? 'text-success' : 'text-danger'}>{playerAnswer ?? '—'}</span>
+                  </div>
+                )}
               </div>
-            </Card>
-          );
+              {isClickable && game.isHost && (
+                <div className={`text-xs text-accent2/60 mt-3 ${bebas} tracking-[2px]`}>{clickPrompt}</div>
+              )}
+              </Card>
+            );
         })}
       </div>
 
       <div className="flex-1" />
       <div className="mt-8">
         {game.isHost ? (
-          <Btn onClick={onAdvance}>SE RESULTAT</Btn>
+          <Btn onClick={onAdvance} disabled={!allRevealed}>
+            {allRevealed ? 'NESTE: AVSLØRING' : `AVSLØR ALLE SPØRSMÅL FØRST (${questionIndex}/${totalQ})`}
+          </Btn>
         ) : (
           <Waiting text="Venter på verten" />
         )}
@@ -1016,31 +1419,60 @@ function ResultScreen({
   onHome: () => void;
 }) {
   let score = 0;
+  const quizlingIds = game.quizlingIds ?? [];
+  const quizlingCount = game.quizlingCount ?? 1;
+  const isMulti = quizlingCount > 1;
 
-  game.allQuestions?.forEach((q, i) => {
+  const questionResults = game.allQuestions?.map((q, i) => {
     const ans = game.quizAnswers[i];
-    if (ans && ans.toLowerCase().includes(q.answer.toLowerCase())) {
+    const correct = ans ? isAnswerCorrect(ans, q.answer) : false;
+    if (correct) {
       score += 1;
     } else {
       score -= 1;
     }
-  });
+    return { question: q.question, answer: q.answer, playerAnswer: ans, correct };
+  }) ?? [];
 
   const voteCounts: Record<string, number> = {};
-  Object.values(game.votes).forEach(targetId => {
-    voteCounts[targetId] = (voteCounts[targetId] ?? 0) + 1;
+  Object.values(game.votes).forEach(targetIds => {
+    targetIds.forEach(targetId => {
+      voteCounts[targetId] = (voteCounts[targetId] ?? 0) + 1;
+    });
   });
-  const maxVotes = Math.max(...Object.values(voteCounts), 0);
-  const eliminated = Object.entries(voteCounts).find(([, c]) => c === maxVotes);
-  if (eliminated) {
-    score += eliminated[0] === game.quizlingId ? 3 : -3;
+
+  const sorted = Object.entries(voteCounts).sort(([, a], [, b]) => b - a);
+  const eliminated: [string, number][] = [];
+  for (let i = 0; i < sorted.length && eliminated.length < quizlingCount; i++) {
+    if (eliminated.length === quizlingCount - 1) {
+      const tiedCount = sorted.filter(([, c]) => c === sorted[i][1]).length;
+      const alreadyAtThisCount = eliminated.filter(([, c]) => c === sorted[i][1]).length;
+      if (tiedCount - alreadyAtThisCount > 1) break;
+    }
+    eliminated.push(sorted[i]);
   }
 
+  const eliminatedIds = eliminated.map(([id]) => id);
+  const correctlyEliminated = eliminatedIds.filter(id => quizlingIds.includes(id));
+  const wronglyEliminated = eliminatedIds.filter(id => !quizlingIds.includes(id));
+  const escapedQuizlings = quizlingIds.filter(id => !eliminatedIds.includes(id));
+
+  score += correctlyEliminated.length * 3;
+  score -= escapedQuizlings.length * 3;
+  void wronglyEliminated; // no extra penalty — quizling escaping already covers this
+
+  // Lagnavn scoring: +1 if quizling failed to get their target, -1 if they succeeded
+  if (game.quizlingLagnavnSuccess === true) {
+    score -= 1;
+  } else if (game.quizlingLagnavnSuccess === false) {
+    score += 1;
+  }
+
+  const quizlings = game.players.filter(p => quizlingIds.includes(p.id));
   const trofasteWin = score >= 1;
 
   return (
     <Screen>
-      <Progress progress={100} />
 
       <div className="text-center py-8" style={{ animation: 'scaleIn 0.5s ease' }}>
         <div className="flex justify-center mb-4">
@@ -1055,10 +1487,10 @@ function ResultScreen({
           className={`${bebas} text-[44px] tracking-[5px] mb-2 ${trofasteWin ? 'text-success' : 'text-danger'}`}
           style={{ textShadow: trofasteWin ? '0 0 40px rgba(46,204,113,0.3)' : '0 0 40px rgba(255,68,68,0.3)' }}
         >
-          {trofasteWin ? 'TROFASTE VINNER!' : 'QUIZLING VINNER!'}
+          {trofasteWin ? 'TROFASTE VINNER!' : (isMulti ? 'QUIZLINGENE VINNER!' : 'QUIZLING VINNER!')}
         </div>
         <p className="text-sm text-muted/50">
-          {trofasteWin ? 'Laget klarte oppdraget!' : 'Quizlingen lurte alle!'}
+          {trofasteWin ? 'Laget klarte oppdraget!' : (isMulti ? 'Quizlingene lurte alle!' : 'Quizlingen lurte alle!')}
         </p>
       </div>
 
@@ -1067,6 +1499,66 @@ function ResultScreen({
         <span className={`${bebas} text-[56px] leading-none ${score >= 0 ? 'text-success' : 'text-danger'}`}>
           {score >= 0 ? '+' : ''}{score}
         </span>
+      </Card>
+
+      {/* Fasit summary */}
+      {questionResults.length > 0 && (
+        <Card className="mb-4" style={{ animation: 'fadeUp 0.4s ease 0.3s both' }}>
+          <div className={`text-[10px] tracking-[4px] uppercase text-muted/40 mb-4 ${bebas}`}>Fasit</div>
+          <div className="space-y-2">
+            {questionResults.map((r, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] ${r.correct ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
+                  {r.correct ? '\u2713' : '\u2717'}
+                </div>
+                <span className="text-white/70 truncate flex-1">{r.question}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Lagnavn */}
+      {game.lagnavn && (
+        <Card className="mb-4" style={{ animation: 'fadeUp 0.4s ease 0.4s both' }}>
+          <div className={`text-[10px] tracking-[4px] uppercase text-muted/40 mb-2 ${bebas}`}>Lagnavn</div>
+          <div className={`${bebas} text-[20px] tracking-[2px]`}>{game.lagnavn}</div>
+          {game.quizlingLagnavnTarget && (
+            <div className={`text-xs mt-2 ${game.quizlingLagnavnSuccess ? 'text-danger/80' : 'text-success/80'}`}>
+              Quizlingens mål: {game.quizlingLagnavnTarget} — {game.quizlingLagnavnSuccess ? 'Klarte det!' : 'Klarte det ikke!'}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Eliminering */}
+      <Card className="mb-4" style={{ animation: 'fadeUp 0.4s ease 0.5s both' }}>
+        <div className={`text-[10px] tracking-[4px] uppercase text-muted/40 mb-2 ${bebas}`}>Eliminering</div>
+        {eliminated.length > 0 ? (
+          <div className="space-y-2">
+            {eliminated.map(([id]) => {
+              const player = game.players.find(p => p.id === id);
+              const isCorrect = quizlingIds.includes(id);
+              return (
+                <div key={id} className="flex items-center gap-3">
+                  <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] ${isCorrect ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
+                    {isCorrect ? '\u2713' : '\u2717'}
+                  </div>
+                  <div>
+                    <span className="text-white/80 text-sm">{player?.name ?? 'Ukjent'}</span>
+                    <span className="text-muted/40 text-xs ml-2">
+                      ({isCorrect ? (isMulti ? 'Quizling funnet!' : 'Quizlingen funnet!') : 'Feil person'})
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-sm text-danger/80">
+            {isMulti ? 'Ingen ble eliminert — Quizlingene slapp unna' : 'Ingen ble eliminert — Quizlingen slapp unna'}
+          </div>
+        )}
       </Card>
 
       <div className="space-y-4">
@@ -1086,35 +1578,61 @@ function ResultScreen({
 export default function GameApp() {
   const { session, gameState, error, loading, create, join, start, action, leave, playerId } = useGame();
   const [screen, setScreen] = useState<'home' | 'create' | 'join'>('home');
+  const [showManual, setShowManual] = useState(false);
+
+  // Scroll to top on phase change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [gameState?.phase]);
+
+  const openManual = () => setShowManual(true);
+  const closeManual = () => setShowManual(false);
+
+  const manualModal = showManual ? <BrukermanualModal onClose={closeManual} /> : null;
+
+  // Floating utility bar for in-game screens
+  const inGameOverlay = (
+    <>
+      {manualModal}
+      <div className="fixed top-4 left-4 z-40 flex gap-2">
+        <button onClick={openManual} className="text-white/30 hover:text-white/60 transition-colors p-2" title="Brukermanual">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </button>
+        <button onClick={leave} className="text-white/30 hover:text-white/60 transition-colors p-2" title="Begynn på nytt">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        </button>
+      </div>
+    </>
+  );
 
   if (session && gameState) {
     const phase = gameState.phase;
 
-    if (phase === 'lobby') return <LobbyScreen game={gameState} onStart={start} onSetMode={(mode) => action('set-mode', { mode })} loading={loading} />;
-    if (phase === 'rules') return <RulesScreen game={gameState} onAdvance={() => action('advance-phase')} onHome={leave} />;
-    if (phase === 'role-reveal') return <RoleRevealScreen game={gameState} playerId={playerId!} onConfirm={() => action('confirm-role')} />;
+    if (phase === 'lobby') return <>{inGameOverlay}<LobbyScreen game={gameState} onStart={start} onSetMode={(mode) => action('set-mode', { mode })} loading={loading} /></>;
+    if (phase === 'rules') return <>{inGameOverlay}<RulesScreen game={gameState} onAdvance={() => action('advance-phase')} onHome={leave} /></>;
+    if (phase === 'role-reveal') return <>{inGameOverlay}<RoleRevealScreen game={gameState} playerId={playerId!} onConfirm={() => action('confirm-role')} /></>;
     if (phase === 'lagnavn' || phase === 'lagnavn-confirmed') {
-      return <LagnavnScreen game={gameState} onSubmit={(lagnavn) => action('submit-lagnavn', { lagnavn })} onAdvance={() => action('advance-phase')} />;
+      return <>{inGameOverlay}<LagnavnScreen game={gameState} onSubmit={(lagnavn) => action('submit-lagnavn', { lagnavn })} onAdvance={() => action('advance-phase')} /></>;
     }
     if (phase.startsWith('power-q-')) {
-      return <PowerQuestionScreen game={gameState} playerId={playerId!} onSubmit={(answer) => action('submit-power-answer', { answer })} />;
+      return <>{inGameOverlay}<PowerQuestionScreen game={gameState} playerId={playerId!} onSubmit={(answer) => action('submit-power-answer', { answer })} /></>;
     }
     if (phase.startsWith('power-result-')) {
-      return <PowerResultScreen game={gameState} onChoosePin={(pin) => action('choose-pin', { pin })} onAdvance={() => action('advance-phase')} />;
+      return <>{inGameOverlay}<PowerResultScreen game={gameState} onChoosePin={(pin) => action('choose-pin', { pin })} onAdvance={() => action('advance-phase')} /></>;
     }
     if (phase.startsWith('quiz-')) {
-      return <QuizQuestionScreen game={gameState} playerId={playerId!} onSubmit={(answer) => action('submit-quiz-answer', { answer })} onAdvance={() => action('advance-phase')} />;
+      return <>{inGameOverlay}<QuizQuestionScreen game={gameState} playerId={playerId!} onSubmit={(answer) => action('submit-quiz-answer', { answer })} onAdvance={() => action('advance-phase')} onUsePin={() => action('use-pin')} /></>;
     }
-    if (phase === 'voting') return <VotingScreen game={gameState} playerId={playerId!} onVote={(targetId) => action('submit-vote', { targetId })} />;
-    if (phase === 'reveal') return <RevealScreen game={gameState} onAdvance={() => action('advance-phase')} />;
-    if (phase === 'fasit') return <FasitScreen game={gameState} onAdvance={() => action('advance-phase')} />;
-    if (phase === 'result') return <ResultScreen game={gameState} onPlayAgain={() => action('restart-game')} onHome={leave} />;
+    if (phase === 'voting') return <>{inGameOverlay}<VotingScreen game={gameState} playerId={playerId!} onVote={(targetIds) => action('submit-vote', { targetIds })} onUseBlackPin={(questionIndex) => action('use-black-pin', { questionIndex })} /></>;
+    if (phase === 'fasit') return <>{inGameOverlay}<FasitScreen game={gameState} onAdvance={() => action('advance-phase')} onRevealQuestion={() => action('reveal-fasit-question')} /></>;
+    if (phase === 'reveal') return <>{inGameOverlay}<RevealScreen game={gameState} onAdvance={() => action('advance-phase')} onAdvanceRevealStep={() => action('advance-reveal-step')} /></>;
+    if (phase === 'result') return <>{inGameOverlay}<ResultScreen game={gameState} onPlayAgain={() => action('restart-game')} onHome={leave} /></>;
 
     return <Spinner />;
   }
 
-  if (screen === 'create') return <CreateScreen onBack={() => setScreen('home')} onCreate={(name) => create(name)} loading={loading} />;
-  if (screen === 'join') return <JoinScreen onBack={() => setScreen('home')} onJoin={(code, name) => join(code, name)} loading={loading} error={error} />;
+  if (screen === 'create') return <>{manualModal}<CreateScreen onBack={() => setScreen('home')} onCreate={(name) => create(name)} loading={loading} /></>;
+  if (screen === 'join') return <>{manualModal}<JoinScreen onBack={() => setScreen('home')} onJoin={(code, name) => join(code, name)} loading={loading} error={error} /></>;
 
-  return <HomeScreen onCreateClick={() => setScreen('create')} onJoinClick={() => setScreen('join')} />;
+  return <>{manualModal}<HomeScreen onCreateClick={() => setScreen('create')} onJoinClick={() => setScreen('join')} onManual={openManual} /></>;
 }

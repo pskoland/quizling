@@ -1,0 +1,1089 @@
+Quizling, nettside
+
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>QUIZLING</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1a0008;
+    --surface: #2a000e;
+    --surface2: #3d0018;
+    --accent: #8b0000;
+    --accent2: #b30000;
+    --gold: #c9a84c;
+    --white: #f5f0ee;
+    --muted: #9a7070;
+    --danger: #ff4444;
+    --success: #2ecc71;
+    --radius: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(139,0,0,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(139,0,0,0.08) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .screen { display: none; min-height: 100vh; padding: 24px 20px 48px; position: relative; z-index: 1; max-width: 480px; margin: 0 auto; flex-direction: column; }
+  .screen.active { display: flex; }
+  .logo-text { font-family: 'Bebas Neue', sans-serif; font-size: clamp(52px,15vw,80px); letter-spacing: 6px; color: var(--white); text-shadow: 0 0 40px rgba(139,0,0,0.8), 0 0 80px rgba(139,0,0,0.4); line-height: 1; text-align: center; }
+  .logo-sub { font-size: 11px; letter-spacing: 4px; color: var(--muted); text-transform: uppercase; margin-top: 4px; text-align: center; }
+  .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--accent2), transparent); margin: 20px 0; }
+  .btn { display: block; width: 100%; padding: 16px 24px; border: none; border-radius: var(--radius); font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 3px; cursor: pointer; transition: all 0.15s ease; text-align: center; }
+  .btn-primary { background: var(--accent2); color: var(--white); box-shadow: 0 4px 20px rgba(139,0,0,0.5); }
+  .btn-primary:hover { background: #cc0000; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-secondary { background: transparent; color: var(--white); border: 1px solid rgba(255,255,255,0.2); }
+  .btn-secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn + .btn { margin-top: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .input-group { margin-bottom: 16px; }
+  .input-label { display: block; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  input[type="text"], input[type="number"] { width: 100%; background: var(--surface); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius); color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 18px; padding: 14px 16px; outline: none; transition: border-color 0.2s; }
+  input:focus { border-color: var(--accent2); }
+  textarea { width: 100%; background: var(--surface); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius); color: var(--white); font-family: 'DM Sans', sans-serif; font-size: 16px; padding: 14px 16px; outline: none; resize: none; min-height: 90px; transition: border-color 0.2s; }
+  textarea:focus { border-color: var(--accent2); }
+  .room-code-display { background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); padding: 20px; text-align: center; margin-bottom: 20px; }
+  .room-code-label { font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .room-code-value { font-family: 'Bebas Neue', sans-serif; font-size: 56px; letter-spacing: 12px; color: var(--white); text-shadow: 0 0 20px rgba(139,0,0,0.6); }
+  .player-list { list-style: none; margin-bottom: 20px; }
+  .player-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border-radius: var(--radius); margin-bottom: 8px; border-left: 3px solid var(--accent); animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+  .player-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
+  .player-name { font-size: 16px; font-weight: 500; }
+  .player-host-badge { margin-left: auto; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); }
+  .section-tag { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--accent2); margin-bottom: 6px; display: block; }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 2px; line-height: 1.1; }
+  .section-desc { font-size: 14px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .role-card { background: var(--surface); border-radius: 8px; padding: 28px 20px; text-align: center; border: 1px solid rgba(255,255,255,0.08); position: relative; overflow: hidden; }
+  .role-card::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 0%, rgba(139,0,0,0.3) 0%, transparent 70%); pointer-events:none; }
+  .role-icon { font-size: 44px; margin-bottom: 12px; display: block; }
+  .role-title { font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 4px; margin-bottom: 8px; }
+  .role-title.quizling { color: var(--danger); text-shadow: 0 0 20px rgba(255,68,68,0.5); }
+  .role-title.trofast { color: var(--success); text-shadow: 0 0 20px rgba(46,204,113,0.5); }
+  .role-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+  .secret-info { background: rgba(139,0,0,0.2); border: 1px solid rgba(139,0,0,0.4); border-radius: var(--radius); padding: 14px; font-size: 14px; color: var(--white); text-align: left; }
+  .secret-info strong { display: block; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .question-card { background: var(--surface); border-radius: 8px; padding: 20px; margin-bottom: 16px; border-top: 3px solid var(--accent2); }
+  .question-number { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .question-text { font-size: 19px; font-weight: 500; line-height: 1.4; color: var(--white); }
+  .power-pin { display: flex; align-items: flex-start; gap: 14px; background: var(--surface); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s; }
+  .power-pin:hover { border-color: var(--accent2); }
+  .power-pin.selected { border-color: var(--gold); background: rgba(201,168,76,0.1); }
+  .pin-color { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
+  .pin-white { background: #f0f0f0; box-shadow: 0 0 10px rgba(255,255,255,0.3); }
+  .pin-blue { background: #3498db; box-shadow: 0 0 10px rgba(52,152,219,0.5); }
+  .pin-black { background: #333; border: 1px solid #666; }
+  .pin-info { flex: 1; }
+  .pin-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+  .pin-desc { font-size: 13px; color: var(--muted); line-height: 1.4; }
+  .vote-option { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--surface); border-radius: var(--radius); margin-bottom: 10px; cursor: pointer; border: 1px solid rgba(255,255,255,0.06); transition: all 0.2s; }
+  .vote-option:hover { border-color: rgba(255,255,255,0.2); }
+  .vote-option.selected { border-color: var(--accent2); background: rgba(139,0,0,0.2); }
+  .vote-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 16px; flex-shrink: 0; }
+  .vote-name { font-size: 16px; font-weight: 500; }
+  .vote-votes { margin-left: auto; font-size: 13px; color: var(--muted); }
+  .score-board { background: var(--surface); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  .score-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; gap: 8px; }
+  .score-row:last-child { border-bottom: none; }
+  .score-label { color: var(--muted); flex: 1; }
+  .score-value.plus { color: var(--success); font-weight: 600; }
+  .score-value.minus { color: var(--danger); font-weight: 600; }
+  .score-total { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 0; font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 2px; border-top: 1px solid rgba(255,255,255,0.15); margin-top: 8px; }
+  .winner-display { text-align: center; padding: 28px 0 20px; }
+  .winner-emoji { font-size: 60px; margin-bottom: 12px; display: block; }
+  .winner-title { font-family: 'Bebas Neue', sans-serif; font-size: 44px; letter-spacing: 4px; margin-bottom: 6px; }
+  .winner-subtitle { font-size: 14px; color: var(--muted); }
+  .loading-spinner { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 16px; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--surface2); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+  .progress-bar { height: 3px; background: var(--surface2); border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; transition: width 0.4s ease; }
+  .status-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border-radius: 20px; padding: 6px 14px; font-size: 12px; letter-spacing: 1px; color: var(--muted); margin-bottom: 16px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: blink 1.5s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .alert { padding: 13px 15px; border-radius: var(--radius); font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
+  .alert-info { background: rgba(52,152,219,0.12); border: 1px solid rgba(52,152,219,0.3); color: #7ec8e3; }
+  .alert-warning { background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.3); color: var(--gold); }
+  .alert-danger { background: rgba(255,68,68,0.12); border: 1px solid rgba(255,68,68,0.3); color: var(--danger); }
+  .waiting-indicator { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .lagnavn-display { background: var(--surface2); border: 1px solid var(--accent); border-radius: var(--radius); padding: 18px; text-align: center; margin-bottom: 18px; }
+  .lagnavn-label { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .lagnavn-value { font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 3px; color: var(--white); }
+  .spacer { flex: 1; }
+  @media (max-height: 700px) { .screen { padding: 14px 16px 32px; } .logo-text { font-size: 44px; } }
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div id="screen-home" class="screen active">
+  <div style="padding-top: 36px; margin-bottom: 8px;">
+    <div class="logo-text">QUIZLING</div>
+    <div class="logo-sub">Hvem er forrædere?</div>
+  </div>
+  <div class="divider"></div>
+  <p style="font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 32px; text-align: center; padding: 0 8px;">
+    Et lagspill om tillit og bedrag. Én saboterer fra innsiden. Finn Quizlingen – eller kom deg unna.
+  </p>
+  <button class="btn btn-primary" onclick="showScreen('screen-create')">OPPRETT ROM</button>
+  <button class="btn btn-secondary" onclick="showScreen('screen-join')">BLI MED I ROM</button>
+  <div class="spacer"></div>
+  <button onclick="showScreen('screen-rules')" style="background:none;border:none;color:var(--muted);font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;text-decoration:underline;text-align:center;padding:8px;">REGLER</button>
+</div>
+
+<!-- CREATE -->
+<div id="screen-create" class="screen">
+  <div style="padding-top: 20px; margin-bottom: 24px;">
+    <span class="section-tag">Nytt spill</span>
+    <div class="section-title">OPPRETT ROM</div>
+  </div>
+  <div class="input-group">
+    <label class="input-label">Ditt navn</label>
+    <input type="text" id="host-name" placeholder="Skriv inn navnet ditt" maxlength="20">
+  </div>
+  <div class="spacer"></div>
+  <button class="btn btn-primary" onclick="createRoom()">OPPRETT ROM</button>
+  <button class="btn btn-secondary" onclick="showScreen('screen-home')">TILBAKE</button>
+</div>
+
+<!-- JOIN -->
+<div id="screen-join" class="screen">
+  <div style="padding-top: 20px; margin-bottom: 24px;">
+    <span class="section-tag">Bli med</span>
+    <div class="section-title">BLI MED I ROM</div>
+  </div>
+  <div class="input-group">
+    <label class="input-label">Romkode (4 siffer)</label>
+    <input type="text" id="join-code" placeholder="0000" maxlength="4" inputmode="numeric" style="font-size:32px;text-align:center;letter-spacing:10px;font-family:'Bebas Neue';">
+  </div>
+  <div class="input-group">
+    <label class="input-label">Ditt navn</label>
+    <input type="text" id="join-name" placeholder="Skriv inn navnet ditt" maxlength="20">
+  </div>
+  <div class="spacer"></div>
+  <button class="btn btn-primary" onclick="joinRoom()">BLI MED</button>
+  <button class="btn btn-secondary" onclick="showScreen('screen-home')">TILBAKE</button>
+</div>
+
+<!-- LOBBY HOST -->
+<div id="screen-lobby-host" class="screen">
+  <div style="padding-top: 12px;">
+    <div class="room-code-display">
+      <div class="room-code-label">Romkode – del med alle</div>
+      <div class="room-code-value" id="lobby-code-display">0000</div>
+    </div>
+    <div class="status-badge"><span class="status-dot"></span>Venter på spillere</div>
+    <span class="section-tag">Spillere</span>
+    <div class="section-title">LOBBY</div>
+    <div class="section-desc" id="lobby-count-text" style="margin-bottom:14px;">Venter på 3–9 spillere...</div>
+    <ul class="player-list" id="lobby-player-list-host"></ul>
+  </div>
+  <div class="spacer"></div>
+  <div class="alert alert-info" id="lobby-min-warning">Du trenger minst 3 spillere for å starte.</div>
+  <button class="btn btn-primary" id="btn-start-game" onclick="startGame()" disabled>START SPILLET</button>
+</div>
+
+<!-- LOBBY PLAYER -->
+<div id="screen-lobby-player" class="screen">
+  <div style="padding-top: 32px; text-align: center; margin-bottom: 24px;">
+    <div class="logo-text" style="font-size:40px;">QUIZLING</div>
+  </div>
+  <div class="room-code-display">
+    <div class="room-code-label">Du er i rom</div>
+    <div class="room-code-value" id="lobby-code-player">0000</div>
+  </div>
+  <span class="section-tag">Spillere</span>
+  <div class="section-title" style="margin-bottom:12px;">LOBBY</div>
+  <ul class="player-list" id="lobby-player-list-player"></ul>
+  <div class="spacer"></div>
+  <div class="waiting-indicator"><div class="spinner"></div>Venter på at verten starter...</div>
+</div>
+
+<!-- ROLE REVEAL -->
+<div id="screen-role-reveal" class="screen">
+  <div style="padding-top: 20px; margin-bottom: 20px;">
+    <span class="section-tag">Din rolle</span>
+    <div class="section-title">HEMMELIG OPPDRAG</div>
+    <div class="section-desc">Ikke vis dette til andre!</div>
+  </div>
+  <div class="role-card" id="role-card">
+    <span class="role-icon" id="role-icon">🎭</span>
+    <div class="role-title" id="role-title">TROFAST</div>
+    <p class="role-desc" id="role-desc"></p>
+    <div class="secret-info" id="role-secret" style="display:none;">
+      <strong>Din hemmelige kategori for lagnavn</strong>
+      <div id="role-category" style="font-size:20px;font-weight:600;color:var(--danger);margin-bottom:10px;"></div>
+      <strong>Fasit på quizspørsmålene</strong>
+      <div id="role-fasit-preview" style="font-size:13px;color:var(--muted);line-height:1.8;"></div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="alert alert-danger" id="role-warning" style="display:none;">🕵️ Du er Quizlingen! Sabotér laget – men bli ikke avslørt!</div>
+  <button class="btn btn-primary" onclick="confirmRole()">JEG HAR LEST ROLLEN MIN</button>
+</div>
+
+<!-- LAGNAVN -->
+<div id="screen-lagnavn" class="screen">
+  <div class="progress-bar"><div class="progress-fill" style="width:10%"></div></div>
+  <span class="section-tag">Steg 1</span>
+  <div class="section-title">VELG LAGNAVN</div>
+  <div class="section-desc" style="margin-bottom:20px;">Diskuter og bli enige om et lagnavn. Quizlingen prøver å sabotere kategorien!</div>
+  <div id="lagnavn-input-area">
+    <div class="alert alert-info" id="lagnavn-host-note" style="display:none;">Du er vert – skriv inn det dere ble enige om.</div>
+    <div class="input-group">
+      <label class="input-label">Lagets navn</label>
+      <input type="text" id="lagnavn-input" placeholder="Lagets navn..." maxlength="30">
+    </div>
+    <button class="btn btn-primary" onclick="submitLagnavn()">BEKREFT LAGNAVN</button>
+  </div>
+  <div id="lagnavn-waiting" class="waiting-indicator" style="display:none;"><div class="spinner"></div>Venter på at verten velger lagnavn...</div>
+  <div id="lagnavn-confirmed" style="display:none;">
+    <div class="lagnavn-display">
+      <div class="lagnavn-label">Lagets navn</div>
+      <div class="lagnavn-value" id="lagnavn-confirmed-value"></div>
+    </div>
+    <div id="lagnavn-host-continue" style="display:none;"><button class="btn btn-primary" onclick="advancePhase()">NESTE: MAKTSPØRSMÅL 1</button></div>
+    <div id="lagnavn-player-wait" class="waiting-indicator" style="display:none;"><div class="spinner"></div>Venter på verten...</div>
+  </div>
+</div>
+
+<!-- POWER QUESTION -->
+<div id="screen-power-question" class="screen">
+  <div class="progress-bar"><div class="progress-fill" id="power-progress-fill" style="width:20%"></div></div>
+  <span class="section-tag" id="power-round-tag">Maktspørsmål 1</span>
+  <div class="section-title">MAKTSPØRSMÅL</div>
+  <div class="section-desc" style="margin-bottom:20px;">Besvares individuelt! Den nærmeste riktig vinner makten.</div>
+  <div class="question-card">
+    <div class="question-number" id="power-q-number">MAKTSPØRSMÅL 1 AV 2</div>
+    <div class="question-text" id="power-q-text">Laster...</div>
+  </div>
+  <div id="power-answer-area">
+    <div class="input-group">
+      <label class="input-label">Ditt svar (tall)</label>
+      <input type="number" id="power-answer-input" placeholder="Skriv tall...">
+    </div>
+    <button class="btn btn-primary" onclick="submitPowerAnswer()">SEND SVAR</button>
+  </div>
+  <div id="power-waiting" class="waiting-indicator" style="display:none;"><div class="spinner"></div>Venter på alle svar...</div>
+</div>
+
+<!-- POWER RESULT -->
+<div id="screen-power-result" class="screen">
+  <div style="padding-top:16px; margin-bottom:16px;">
+    <span class="section-tag" id="power-result-tag">Resultat</span>
+    <div class="section-title">MAKTPINNE</div>
+  </div>
+  <div id="power-result-content"></div>
+  <div id="pin-choice-area" style="display:none;">
+    <span class="section-tag">Velg maktpinne</span>
+    <div class="section-title" style="margin-bottom:14px;">DIN MAKT</div>
+    <div class="power-pin" onclick="choosePowerPin('blue')" id="pin-blue-opt">
+      <div class="pin-color pin-blue"></div>
+      <div class="pin-info"><div class="pin-name">Blå pinne</div><div class="pin-desc">Se fasiten på det 4. quizspørsmålet etter det er stilt.</div></div>
+    </div>
+    <div class="power-pin" onclick="choosePowerPin('black')" id="pin-black-opt">
+      <div class="pin-color pin-black"></div>
+      <div class="pin-info"><div class="pin-name">Svart pinne</div><div class="pin-desc">Se hva en annen spiller skrev som lagets svar på et tidligere spørsmål.</div></div>
+    </div>
+    <button class="btn btn-primary" id="btn-confirm-pin" onclick="confirmPinChoice()" disabled style="margin-top:10px;">VELG PINNE</button>
+  </div>
+  <div id="power-result-host-continue" style="display:none;"><button class="btn btn-primary" onclick="advancePhase()">NESTE</button></div>
+  <div id="power-result-wait" class="waiting-indicator" style="display:none;"><div class="spinner"></div>Venter...</div>
+</div>
+
+<!-- QUIZ QUESTION -->
+<div id="screen-quiz-question" class="screen">
+  <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill" style="width:30%"></div></div>
+  <span class="section-tag" id="quiz-round-tag">Spørsmål 1 av 4</span>
+  <div class="section-title">QUIZSPØRSMÅL</div>
+  <div class="section-desc" style="margin-bottom:16px;">Diskuter i laget – kun skriveren leverer svaret.</div>
+  <div class="question-card">
+    <div class="question-number" id="quiz-q-number">SPØRSMÅL 1 AV 4</div>
+    <div class="question-text" id="quiz-q-text">Laster...</div>
+  </div>
+  <div id="quiz-fasit-peek" class="alert alert-warning" style="display:none;"></div>
+  <div id="quiz-writer-area" style="display:none;">
+    <div class="alert alert-warning" style="margin-bottom:12px;">✍️ Du er skriveren! Bare du ser svaret.</div>
+    <div class="input-group">
+      <label class="input-label">Lagets svar</label>
+      <textarea id="quiz-answer-input" placeholder="Skriv lagets svar..."></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="submitQuizAnswer()">LEVER SVAR</button>
+  </div>
+  <div id="quiz-wait-area" class="waiting-indicator" style="display:none;"><div class="spinner"></div>Skriveren leverer svaret...</div>
+  <div id="quiz-host-continue" style="display:none;"><button class="btn btn-primary" onclick="advancePhase()">NESTE</button></div>
+</div>
+
+<!-- VOTING -->
+<div id="screen-voting" class="screen">
+  <div class="progress-bar"><div class="progress-fill" style="width:82%"></div></div>
+  <span class="section-tag">Eliminering</span>
+  <div class="section-title">HVEM ER QUIZLINGEN?</div>
+  <div class="section-desc" style="margin-bottom:20px;">Diskuter! Det trengs 2 stemmer for å eliminere noen.</div>
+  <div id="voting-list"></div>
+  <div class="spacer"></div>
+  <div id="voting-action">
+    <button class="btn btn-primary" id="btn-confirm-vote" onclick="submitVote()" disabled>STEM</button>
+  </div>
+  <div id="voting-wait" class="waiting-indicator" style="display:none;"><div class="spinner"></div>Venter på alle stemmer...</div>
+</div>
+
+<!-- FASIT -->
+<div id="screen-fasit" class="screen">
+  <div class="progress-bar"><div class="progress-fill" style="width:92%"></div></div>
+  <span class="section-tag">Fasit</span>
+  <div class="section-title" style="margin-bottom:16px;">SVARENE</div>
+  <div id="fasit-content"></div>
+  <div class="spacer"></div>
+  <div id="fasit-host-continue" style="display:none;"><button class="btn btn-primary" onclick="advancePhase()">SE RESULTAT</button></div>
+  <div id="fasit-player-wait" class="waiting-indicator" style="display:none;"><div class="spinner"></div>Venter på verten...</div>
+</div>
+
+<!-- RESULT -->
+<div id="screen-result" class="screen">
+  <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+  <div id="winner-display" class="winner-display"></div>
+  <div class="score-board" id="final-score-board"></div>
+  <div id="quizling-reveal" style="margin-bottom:20px;"></div>
+  <button class="btn btn-primary" onclick="resetAndHome()">SPILL IGJEN</button>
+</div>
+
+<!-- RULES -->
+<div id="screen-rules" class="screen">
+  <div style="padding-top:20px; margin-bottom:20px;">
+    <span class="section-tag">Spillregler</span>
+    <div class="section-title">SLIK SPILLER DU</div>
+  </div>
+  <div style="font-size:14px;line-height:1.8;color:var(--muted);flex:1;overflow-y:auto;">
+    <p style="color:var(--white);font-weight:600;margin-bottom:6px;">Rollene</p>
+    <p style="margin-bottom:16px;"><strong style="color:#2ecc71;">Trofaste</strong> – Svar riktig på quiz og finn Quizlingen.<br><strong style="color:#ff4444;">Quizling</strong> – Sabotér laget med fasiten uten å bli avslørt.</p>
+    <p style="color:var(--white);font-weight:600;margin-bottom:6px;">Poeng</p>
+    <p style="margin-bottom:16px;">✅ Riktig quizsvar: +1<br>❌ Feil quizsvar: -1<br>🏷️ Quizling får lagnavn i kategori: -1<br>🏷️ Quizling mislykkes med lagnavn: +1<br>🎯 Quizling stemmes ut: +3<br>💀 Feil person stemmes ut: -3</p>
+    <p style="color:var(--white);font-weight:600;margin-bottom:6px;">Maktpinner</p>
+    <p style="margin-bottom:16px;">⚪ <strong>Hvit pinne</strong> – Se fasit på forrige spørsmål<br>🔵 <strong>Blå pinne</strong> – Se fasit på spørsmål 4<br>⚫ <strong>Svart pinne</strong> – Se hva en annen spiller svarte</p>
+    <p style="color:var(--white);font-weight:600;margin-bottom:6px;">Vinner</p>
+    <p>Poengsum +1 eller mer → <strong style="color:#2ecc71;">Trofaste vinner</strong><br>Poengsum 0 eller mindre → <strong style="color:#ff4444;">Quizling vinner</strong></p>
+  </div>
+  <button class="btn btn-secondary" style="margin-top:20px;" onclick="showScreen('screen-home')">TILBAKE</button>
+</div>
+
+<script>
+// ==============================
+// STATE
+// ==============================
+const API = "https://api.anthropic.com/v1/messages";
+let bc;
+let state = { roomCode:null, myName:null, isHost:false, players:[], myId:null };
+let selectedPin = null;
+
+// ==============================
+// UTILS
+// ==============================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function $(id) { return document.getElementById(id); }
+
+function genCode() { return String(Math.floor(1000 + Math.random() * 9000)); }
+function genId() { return Math.random().toString(36).slice(2,9); }
+
+// ==============================
+// ROOM STORAGE
+// ==============================
+function getRooms() {
+  try { return JSON.parse(localStorage.getItem('qz_rooms') || '{}'); } catch(e) { return {}; }
+}
+function saveRooms(r) { localStorage.setItem('qz_rooms', JSON.stringify(r)); }
+function getRoom() { const r = getRooms(); return r[state.roomCode]; }
+function setRoom(rs) {
+  const r = getRooms();
+  r[state.roomCode] = rs;
+  saveRooms(r);
+  if (bc) bc.postMessage({ type: 'update' });
+}
+
+// ==============================
+// CREATE / JOIN
+// ==============================
+function createRoom() {
+  const name = $('host-name').value.trim();
+  if (!name) { alert('Skriv inn et navn!'); return; }
+  state.roomCode = genCode();
+  state.myName = name;
+  state.myId = genId();
+  state.isHost = true;
+  state.players = [{ name, id: state.myId }];
+
+  setRoom({
+    phase: 'lobby', players: state.players, hostId: state.myId,
+    quizlingId: null, category: null, questions: [], powerQuestions: [],
+    lagnavn: null, currentQuizQ: 0, quizAnswers: {},
+    powerAnswers: { 0:{}, 1:{} }, powerWinners: {}, powerPins: {},
+    votes: {}, writerQueue: [], confirmedRoles: []
+  });
+  startListening();
+  $('lobby-code-display').textContent = state.roomCode;
+  renderLobby();
+  showScreen('screen-lobby-host');
+}
+
+function joinRoom() {
+  const code = $('join-code').value.trim();
+  const name = $('join-name').value.trim();
+  if (code.length !== 4) { alert('Skriv inn en 4-sifret kode!'); return; }
+  if (!name) { alert('Skriv inn et navn!'); return; }
+  const rooms = getRooms();
+  const rs = rooms[code];
+  if (!rs) { alert('Fant ikke rommet!'); return; }
+  if (rs.phase !== 'lobby') { alert('Spillet er allerede i gang!'); return; }
+  if (rs.players.length >= 9) { alert('Rommet er fullt!'); return; }
+  if (rs.players.find(p => p.name.toLowerCase() === name.toLowerCase())) { alert('Navn allerede tatt!'); return; }
+
+  state.roomCode = code;
+  state.myName = name;
+  state.myId = genId();
+  state.isHost = false;
+
+  rs.players.push({ name, id: state.myId });
+  rooms[code] = rs;
+  saveRooms(rooms);
+  if (bc) bc.postMessage({ type: 'update' });
+
+  state.players = rs.players;
+  startListening();
+  $('lobby-code-player').textContent = code;
+  renderLobby();
+  showScreen('screen-lobby-player');
+}
+
+// ==============================
+// LISTENING
+// ==============================
+function startListening() {
+  if (bc) try { bc.close(); } catch(e) {}
+  bc = new BroadcastChannel('quizling_v2');
+  bc.onmessage = () => syncState();
+  setInterval(syncState, 2000);
+}
+
+function syncState() {
+  const rs = getRoom();
+  if (!rs) return;
+  state.players = rs.players;
+  const cur = document.querySelector('.screen.active')?.id;
+
+  if (rs.phase === 'lobby') {
+    renderLobby();
+    if (state.isHost) {
+      $('lobby-count-text').textContent = `${rs.players.length} spiller${rs.players.length !== 1 ? 'e' : ''} i rommet`;
+      const ok = rs.players.length >= 3;
+      $('btn-start-game').disabled = !ok;
+      $('lobby-min-warning').style.display = ok ? 'none' : 'block';
+    }
+    return;
+  }
+
+  if (rs.phase === 'role-reveal' && cur !== 'screen-role-reveal') { renderRoleReveal(rs); return; }
+  if (rs.phase === 'lagnavn' && cur !== 'screen-lagnavn') { renderLagnavn(rs); return; }
+  if (rs.phase === 'lagnavn-confirmed' && cur === 'screen-lagnavn') { showLagnavnConfirmed(rs); return; }
+  if (rs.phase === 'power-q-0' && cur !== 'screen-power-question') { renderPowerQ(rs, 0); return; }
+  if (rs.phase === 'power-q-1' && cur !== 'screen-power-question') { renderPowerQ(rs, 1); return; }
+  if (rs.phase === 'power-result-0' && cur === 'screen-power-question') { renderPowerResult(rs, 0); return; }
+  if (rs.phase === 'power-result-1' && cur === 'screen-power-question') { renderPowerResult(rs, 1); return; }
+
+  if (rs.phase.startsWith('quiz-') && cur !== 'screen-quiz-question') {
+    const qi = parseInt(rs.phase.split('-')[1]);
+    renderQuizQ(rs, qi); return;
+  }
+  if (rs.phase.startsWith('quiz-') && cur === 'screen-quiz-question') {
+    const qi = parseInt(rs.phase.split('-')[1]);
+    if (qi !== state._lastQuizQi) { renderQuizQ(rs, qi); }
+    // if answer submitted, show host continue
+    if (rs.quizAnswers[qi] && state.isHost) {
+      $('quiz-writer-area').style.display = 'none';
+      $('quiz-wait-area').style.display = 'none';
+      $('quiz-host-continue').style.display = 'block';
+    }
+    return;
+  }
+
+  if (rs.phase === 'power-result-0' && cur !== 'screen-power-result') { renderPowerResult(rs, 0); return; }
+  if (rs.phase === 'power-result-1' && cur !== 'screen-power-result') { renderPowerResult(rs, 1); return; }
+
+  // Check power answers complete
+  if ((rs.phase === 'power-q-0' || rs.phase === 'power-q-1') && cur === 'screen-power-question') {
+    const round = rs.phase === 'power-q-0' ? 0 : 1;
+    if (rs.powerAnswers?.[round]?.[state.myId] !== undefined) {
+      $('power-answer-area').style.display = 'none';
+      $('power-waiting').style.display = 'flex';
+    }
+    const total = Object.keys(rs.powerAnswers?.[round] || {}).length;
+    if (total >= rs.players.length && state.isHost) {
+      calcPowerWinner(rs, round);
+    }
+    return;
+  }
+
+  if (rs.phase === 'voting' && cur !== 'screen-voting') { renderVoting(rs); return; }
+  if (rs.phase === 'voting' && cur === 'screen-voting') { updateVotes(rs); return; }
+  if (rs.phase === 'fasit' && cur !== 'screen-fasit') { renderFasit(rs); return; }
+  if (rs.phase === 'result' && cur !== 'screen-result') { renderResult(rs); return; }
+}
+
+// ==============================
+// LOBBY
+// ==============================
+function renderLobby() {
+  const rs = getRoom(); if (!rs) return;
+  const html = rs.players.map(p => `
+    <li class="player-item">
+      <div class="player-dot"></div>
+      <div class="player-name">${p.name}</div>
+      ${p.id === rs.hostId ? '<span class="player-host-badge">VERT</span>' : ''}
+    </li>`).join('');
+  const h = $('lobby-player-list-host'); if (h) h.innerHTML = html;
+  const p = $('lobby-player-list-player'); if (p) p.innerHTML = html;
+}
+
+// ==============================
+// START GAME
+// ==============================
+async function startGame() {
+  const btn = $('btn-start-game');
+  btn.disabled = true; btn.textContent = 'GENERERER SPØRSMÅL...';
+  const rs = getRoom();
+
+  const quizlingIdx = Math.floor(Math.random() * rs.players.length);
+  const quizlingId = rs.players[quizlingIdx].id;
+  const writerQueue = rs.players.map(p => p.id);
+
+  let questions, powerQuestions, category;
+  try {
+    const r = await genQuestions();
+    questions = r.questions; powerQuestions = r.powerQuestions; category = r.category;
+  } catch(e) {
+    questions = [
+      {question:"Hva heter Norges høyeste fjell?", answer:"Galdhøpiggen"},
+      {question:"Hvilket år ble den franske revolusjonen?", answer:"1789"},
+      {question:"Hva er hovedstaden i Australia?", answer:"Canberra"},
+      {question:"Hvor mange bein har en edderkopp?", answer:"8"},
+    ];
+    powerQuestions = [
+      {question:"Omtrent hvor mange kilometer er det fra Oslo til Bergen langs vei?", answer:"462"},
+      {question:"Omtrent hvor mange land er det i verden?", answer:"195"},
+    ];
+    category = "dyreriket";
+  }
+
+  rs.phase = 'role-reveal';
+  rs.quizlingId = quizlingId;
+  rs.category = category;
+  rs.questions = questions;
+  rs.powerQuestions = powerQuestions;
+  rs.writerQueue = writerQueue;
+  rs.confirmedRoles = [];
+  setRoom(rs);
+}
+
+async function genQuestions() {
+  const resp = await fetch(API, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      messages:[{
+        role:'user',
+        content:`Generer spørsmål for norsk brettspill Quizling.
+Krav:
+- 4 quizspørsmål: Middels vanskelighetsgrad. Fakta om geografi, historie, vitenskap, kultur. Ikke for lett, ikke for vanskelig.
+- 2 maktspørsmål: Svar MÅ være et tall (årstall, antall, km, kg). Middels vanskelighetsgrad.
+- 1 kategori: Enkel kategori for lagnavn (f.eks. "dyreriket", "mat og drikke", "sport", "farger", "musikk").
+
+Svar KUN som JSON, ingen annen tekst:
+{"questions":[{"question":"...","answer":"..."},{"question":"...","answer":"..."},{"question":"...","answer":"..."},{"question":"...","answer":"..."}],"powerQuestions":[{"question":"...","answer":"123"},{"question":"...","answer":"456"}],"category":"..."}`
+      }]
+    })
+  });
+  const d = await resp.json();
+  const txt = d.content[0].text.replace(/```json|```/g,'').trim();
+  return JSON.parse(txt);
+}
+
+// ==============================
+// ROLE REVEAL
+// ==============================
+function renderRoleReveal(rs) {
+  const isQ = state.myId === rs.quizlingId;
+  $('role-icon').textContent = isQ ? '🕵️' : '🛡️';
+  const t = $('role-title');
+  t.textContent = isQ ? 'QUIZLING' : 'TROFAST';
+  t.className = 'role-title ' + (isQ ? 'quizling' : 'trofast');
+  $('role-desc').textContent = isQ
+    ? 'Du har fasiten og en hemmelig kategori. Sørg for at laget gjør det dårlig – uten å bli avslørt!'
+    : 'Svar riktig på quiz og finn Quizlingen!';
+  const sec = $('role-secret');
+  if (isQ) {
+    sec.style.display = 'block';
+    $('role-category').textContent = rs.category;
+    $('role-fasit-preview').innerHTML = rs.questions.map((q,i) => `<strong>Q${i+1}:</strong> ${q.answer}`).join('<br>');
+    $('role-warning').style.display = 'block';
+  } else {
+    sec.style.display = 'none';
+    $('role-warning').style.display = 'none';
+  }
+  showScreen('screen-role-reveal');
+}
+
+function confirmRole() {
+  const rs = getRoom();
+  if (!rs.confirmedRoles) rs.confirmedRoles = [];
+  if (!rs.confirmedRoles.includes(state.myId)) rs.confirmedRoles.push(state.myId);
+  if (rs.confirmedRoles.length >= rs.players.length || state.isHost) {
+    rs.phase = 'lagnavn';
+  }
+  setRoom(rs);
+  renderLagnavn(rs);
+}
+
+// ==============================
+// LAGNAVN
+// ==============================
+function renderLagnavn(rs) {
+  showScreen('screen-lagnavn');
+  $('lagnavn-confirmed').style.display = 'none';
+  if (rs.lagnavn) { showLagnavnConfirmed(rs); return; }
+  if (state.isHost) {
+    $('lagnavn-input-area').style.display = 'block';
+    $('lagnavn-host-note').style.display = 'block';
+    $('lagnavn-waiting').style.display = 'none';
+  } else {
+    $('lagnavn-input-area').style.display = 'none';
+    $('lagnavn-waiting').style.display = 'flex';
+  }
+}
+
+function submitLagnavn() {
+  const val = $('lagnavn-input').value.trim();
+  if (!val) { alert('Skriv inn et lagnavn!'); return; }
+  const rs = getRoom();
+  rs.lagnavn = val; rs.phase = 'lagnavn-confirmed';
+  setRoom(rs);
+  showLagnavnConfirmed(rs);
+}
+
+function showLagnavnConfirmed(rs) {
+  $('lagnavn-input-area').style.display = 'none';
+  $('lagnavn-waiting').style.display = 'none';
+  $('lagnavn-confirmed').style.display = 'block';
+  $('lagnavn-confirmed-value').textContent = rs.lagnavn;
+  if (state.isHost) {
+    $('lagnavn-host-continue').style.display = 'block';
+    $('lagnavn-player-wait').style.display = 'none';
+  } else {
+    $('lagnavn-host-continue').style.display = 'none';
+    $('lagnavn-player-wait').style.display = 'flex';
+  }
+}
+
+// ==============================
+// ADVANCE PHASE
+// ==============================
+function advancePhase() {
+  const rs = getRoom();
+  const p = rs.phase;
+  if (p === 'lagnavn-confirmed') { rs.phase = 'power-q-0'; }
+  else if (p === 'power-result-0') { rs.phase = 'quiz-0'; rs.currentQuizQ = 0; }
+  else if (p === 'quiz-0') { rs.phase = 'quiz-1'; rs.currentQuizQ = 1; }
+  else if (p === 'quiz-1') { rs.phase = 'quiz-2'; rs.currentQuizQ = 2; }
+  else if (p === 'quiz-2') { rs.phase = 'power-q-1'; }
+  else if (p === 'power-result-1') { rs.phase = 'quiz-3'; rs.currentQuizQ = 3; }
+  else if (p === 'quiz-3') { rs.phase = 'voting'; }
+  else if (p === 'fasit') { rs.phase = 'result'; }
+  setRoom(rs);
+  syncState();
+}
+
+// ==============================
+// POWER QUESTIONS
+// ==============================
+function renderPowerQ(rs, round) {
+  const pq = rs.powerQuestions[round];
+  showScreen('screen-power-question');
+  state._powerRound = round;
+  $('power-round-tag').textContent = `Maktspørsmål ${round + 1}`;
+  $('power-q-number').textContent = `MAKTSPØRSMÅL ${round + 1} AV 2`;
+  $('power-q-text').textContent = pq.question;
+  $('power-answer-input').value = '';
+  $('power-answer-area').style.display = 'block';
+  $('power-waiting').style.display = 'none';
+  $('power-progress-fill').style.width = (round === 0 ? 22 : 60) + '%';
+}
+
+function submitPowerAnswer() {
+  const val = $('power-answer-input').value.trim();
+  if (!val) { alert('Skriv inn et tall!'); return; }
+  const rs = getRoom();
+  const round = state._powerRound ?? 0;
+  if (!rs.powerAnswers) rs.powerAnswers = {0:{},1:{}};
+  rs.powerAnswers[round][state.myId] = parseFloat(val);
+  setRoom(rs);
+  $('power-answer-area').style.display = 'none';
+  $('power-waiting').style.display = 'flex';
+}
+
+function calcPowerWinner(rs, round) {
+  const correct = parseFloat(rs.powerQuestions[round].answer);
+  const ans = rs.powerAnswers[round];
+  let best = null, minD = Infinity;
+  for (const [id, v] of Object.entries(ans)) {
+    const d = Math.abs(v - correct);
+    if (d < minD) { minD = d; best = id; }
+  }
+  rs.powerWinners[round] = best;
+  rs.phase = `power-result-${round}`;
+  setRoom(rs);
+  renderPowerResult(rs, round);
+}
+
+function renderPowerResult(rs, round) {
+  showScreen('screen-power-result');
+  const winnerId = rs.powerWinners[round];
+  const winner = rs.players.find(p => p.id === winnerId);
+  const isMe = winnerId === state.myId;
+  const correct = rs.powerQuestions[round].answer;
+
+  $('power-result-tag').textContent = `Maktspørsmål ${round + 1} – Resultat`;
+
+  let html = `<div style="text-align:center;padding:20px 0 16px;">
+    <div style="font-size:38px;margin-bottom:10px;">${isMe ? '🏆' : '📌'}</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:3px;margin-bottom:4px;">${isMe ? 'DU VANT MAKTEN!' : `${winner?.name} VANT MAKTEN!`}</div>
+    <div style="font-size:13px;color:var(--muted);">Riktig svar: ${correct}</div>
+  </div>
+  <div class="score-board" style="margin-bottom:16px;">`;
+  for (const p of rs.players) {
+    const a = rs.powerAnswers[round]?.[p.id];
+    const d = a !== undefined ? Math.abs(parseFloat(a) - parseFloat(correct)) : null;
+    html += `<div class="score-row">
+      <span class="score-label">${p.name}${p.id === winnerId ? ' 🏆' : ''}</span>
+      <span>${a ?? '–'} ${d !== null ? `<span style="color:var(--muted);font-size:12px">(±${d})</span>` : ''}</span>
+    </div>`;
+  }
+  html += `</div>`;
+
+  if (round === 0 && isMe) {
+    // Auto white pin
+    const rs2 = getRoom();
+    if (!rs2.powerPins) rs2.powerPins = {};
+    rs2.powerPins[winnerId] = 'white';
+    setRoom(rs2);
+    html += `<div class="alert alert-info">⚪ <strong>Du fikk den hvite pinnen!</strong> Den lar deg se fasiten på forrige spørsmål.</div>`;
+  }
+
+  $('power-result-content').innerHTML = html;
+
+  const pinChoice = $('pin-choice-area');
+  const hostCont = $('power-result-host-continue');
+  const waitEl = $('power-result-wait');
+
+  if (round === 1 && isMe) {
+    selectedPin = null;
+    pinChoice.style.display = 'block';
+    hostCont.style.display = 'none';
+    waitEl.style.display = 'none';
+  } else if (state.isHost) {
+    pinChoice.style.display = 'none';
+    // For round 1, wait for winner to pick pin
+    if (round === 1 && !isMe) {
+      hostCont.style.display = 'none';
+      waitEl.style.display = 'flex';
+      // Poll
+      const poll = setInterval(() => {
+        const r = getRoom();
+        if (r?.powerPins?.[rs.powerWinners[1]] && r.powerPins[rs.powerWinners[1]] !== 'white') {
+          clearInterval(poll);
+          hostCont.style.display = 'block';
+          waitEl.style.display = 'none';
+        }
+      }, 1000);
+    } else {
+      hostCont.style.display = 'block';
+      waitEl.style.display = 'none';
+    }
+  } else {
+    pinChoice.style.display = 'none';
+    hostCont.style.display = 'none';
+    waitEl.style.display = 'flex';
+  }
+}
+
+function choosePowerPin(pin) {
+  selectedPin = pin;
+  document.querySelectorAll('.power-pin').forEach(el => el.classList.remove('selected'));
+  $('pin-' + pin + '-opt').classList.add('selected');
+  $('btn-confirm-pin').disabled = false;
+}
+
+function confirmPinChoice() {
+  if (!selectedPin) return;
+  const rs = getRoom();
+  if (!rs.powerPins) rs.powerPins = {};
+  rs.powerPins[state.myId] = selectedPin;
+  setRoom(rs);
+  $('pin-choice-area').style.display = 'none';
+  if (state.isHost) {
+    $('power-result-host-continue').style.display = 'block';
+  } else {
+    $('power-result-wait').style.display = 'flex';
+  }
+}
+
+// ==============================
+// QUIZ QUESTIONS
+// ==============================
+function renderQuizQ(rs, qi) {
+  state._lastQuizQi = qi;
+  const q = rs.questions[qi];
+  const progresses = [32,44,56,68];
+  showScreen('screen-quiz-question');
+  $('quiz-round-tag').textContent = `Spørsmål ${qi + 1} av 4`;
+  $('quiz-q-number').textContent = `SPØRSMÅL ${qi + 1} AV 4`;
+  $('quiz-q-text').textContent = q.question;
+  $('quiz-progress-fill').style.width = progresses[qi] + '%';
+  $('quiz-answer-input').value = '';
+
+  const writerIdx = qi % rs.players.length;
+  const writerId = rs.writerQueue[writerIdx];
+  const isWriter = state.myId === writerId;
+
+  $('quiz-writer-area').style.display = isWriter ? 'block' : 'none';
+  $('quiz-wait-area').style.display = isWriter ? 'none' : 'block';
+  $('quiz-host-continue').style.display = 'none';
+
+  // Blue pin check
+  const hasBluePinQ4 = rs.powerPins?.[state.myId] === 'blue' && qi === 3;
+  $('quiz-fasit-peek').style.display = hasBluePinQ4 ? 'block' : 'none';
+  if (hasBluePinQ4) $('quiz-fasit-peek').innerHTML = `🔵 <strong>Blå pinne – Fasit:</strong> ${q.answer}`;
+}
+
+function submitQuizAnswer() {
+  const val = $('quiz-answer-input').value.trim();
+  if (!val) { alert('Skriv inn et svar!'); return; }
+  const rs = getRoom();
+  const qi = state._lastQuizQi ?? 0;
+  const writerIdx = qi % rs.players.length;
+  const writerId = rs.writerQueue[writerIdx];
+  rs.quizAnswers[qi] = { answer: val, writerId };
+  setRoom(rs);
+  $('quiz-writer-area').style.display = 'none';
+  if (state.isHost) {
+    $('quiz-host-continue').style.display = 'block';
+    $('quiz-wait-area').style.display = 'none';
+  } else {
+    $('quiz-wait-area').style.display = 'flex';
+  }
+}
+
+// ==============================
+// VOTING
+// ==============================
+function renderVoting(rs) {
+  showScreen('screen-voting');
+  state._vote = null;
+  $('btn-confirm-vote').disabled = true;
+  $('voting-action').style.display = 'block';
+  $('voting-wait').style.display = 'none';
+  const list = $('voting-list');
+  list.innerHTML = '';
+  for (const p of rs.players) {
+    if (p.id === state.myId) continue;
+    const el = document.createElement('div');
+    el.className = 'vote-option';
+    el.dataset.id = p.id;
+    el.innerHTML = `<div class="vote-avatar">${p.name[0].toUpperCase()}</div><div class="vote-name">${p.name}</div><div class="vote-votes" id="vc-${p.id}"></div>`;
+    el.onclick = () => {
+      state._vote = p.id;
+      document.querySelectorAll('.vote-option').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+      $('btn-confirm-vote').disabled = false;
+    };
+    list.appendChild(el);
+  }
+}
+
+function submitVote() {
+  if (!state._vote) return;
+  const rs = getRoom();
+  if (!rs.votes) rs.votes = {};
+  rs.votes[state.myId] = state._vote;
+  setRoom(rs);
+  $('voting-action').style.display = 'none';
+  $('voting-wait').style.display = 'flex';
+  setTimeout(() => {
+    const rs2 = getRoom();
+    if (Object.keys(rs2.votes || {}).length >= rs2.players.length && state.isHost) {
+      rs2.phase = 'fasit'; setRoom(rs2); renderFasit(rs2);
+    }
+  }, 600);
+}
+
+function updateVotes(rs) {
+  const counts = {};
+  for (const v of Object.values(rs.votes || {})) counts[v] = (counts[v] || 0) + 1;
+  for (const p of rs.players) {
+    const el = $('vc-' + p.id);
+    if (el) el.textContent = counts[p.id] ? `${counts[p.id]} stemme${counts[p.id] > 1 ? 'r' : ''}` : '';
+  }
+  if (Object.keys(rs.votes || {}).length >= rs.players.length && state.isHost) {
+    rs.phase = 'fasit'; setRoom(rs); renderFasit(rs);
+  }
+}
+
+// ==============================
+// FASIT
+// ==============================
+function renderFasit(rs) {
+  showScreen('screen-fasit');
+  let html = '<div class="score-board">';
+  for (let i = 0; i < 4; i++) {
+    const q = rs.questions[i];
+    const given = rs.quizAnswers[i]?.answer || '–';
+    const correct = q.answer;
+    const right = given.toLowerCase().trim() === correct.toLowerCase().trim();
+    html += `<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Spørsmål ${i+1}</div>
+      <div style="font-size:15px;font-weight:500;margin-bottom:8px;">${q.question}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;">
+        <span>Lagets svar: <strong>${given}</strong> ${right ? '✅' : '❌'}</span>
+        <span style="color:var(--muted);">Fasit: <strong style="color:var(--white);">${correct}</strong></span>
+      </div>
+    </div>`;
+  }
+  html += `<div style="padding:12px 0;">
+    <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Lagnavn</div>
+    <div style="font-size:15px;font-weight:500;margin-bottom:6px;">${rs.lagnavn}</div>
+    <div style="font-size:13px;color:var(--muted);">Quizlingens kategori: <strong style="color:var(--danger);">${rs.category}</strong></div>
+  </div></div>`;
+
+  $('fasit-content').innerHTML = html;
+  if (state.isHost) {
+    $('fasit-host-continue').style.display = 'block';
+    $('fasit-player-wait').style.display = 'none';
+  } else {
+    $('fasit-host-continue').style.display = 'none';
+    $('fasit-player-wait').style.display = 'flex';
+  }
+}
+
+// ==============================
+// RESULT
+// ==============================
+function renderResult(rs) {
+  showScreen('screen-result');
+
+  // Votes
+  const voteCounts = {};
+  for (const v of Object.values(rs.votes || {})) voteCounts[v] = (voteCounts[v] || 0) + 1;
+  const eliminatedId = Object.entries(voteCounts).find(([,c]) => c >= 2)?.[0] || null;
+  const quizling = rs.players.find(p => p.id === rs.quizlingId);
+
+  let score = 0;
+  const rows = [];
+
+  // Quiz answers
+  for (let i = 0; i < 4; i++) {
+    const given = rs.quizAnswers[i]?.answer?.toLowerCase().trim();
+    const correct = rs.questions[i]?.answer?.toLowerCase().trim();
+    if (!given || !correct) continue;
+    const right = given === correct;
+    const delta = right ? 1 : -1;
+    score += delta;
+    rows.push({ label: `Spørsmål ${i+1}: ${right ? 'riktig' : 'feil'}`, delta });
+  }
+
+  // Lagnavn
+  const lagHit = lagnavnHitsCategory(rs.lagnavn, rs.category);
+  const lagDelta = lagHit ? -1 : 1;
+  score += lagDelta;
+  rows.push({ label: lagHit ? 'Quizling saboterte lagnavnet' : 'Quizling mislyktes med lagnavn', delta: lagDelta });
+
+  // Voting
+  let voteDelta;
+  if (eliminatedId === rs.quizlingId) { voteDelta = 3; }
+  else if (eliminatedId) { voteDelta = -3; }
+  else { voteDelta = -3; }
+  score += voteDelta;
+  rows.push({ label: eliminatedId === rs.quizlingId ? 'Quizling eliminert ✓' : eliminatedId ? 'Feil person eliminert' : 'Ingen ble eliminert', delta: voteDelta });
+
+  const win = score >= 1;
+  $('winner-display').innerHTML = `
+    <span class="winner-emoji">${win ? '🏆' : '🕵️'}</span>
+    <div class="winner-title" style="color:${win ? 'var(--success)' : 'var(--danger)'};">${win ? 'TROFASTE VINNER!' : 'QUIZLING VINNER!'}</div>
+    <div class="winner-subtitle">${win ? 'Laget avslørte bedrageren' : 'Quizlingen lurte hele laget!'}</div>`;
+
+  let sb = '';
+  for (const r of rows) {
+    sb += `<div class="score-row"><span class="score-label">${r.label}</span><span class="score-value ${r.delta > 0 ? 'plus' : 'minus'}">${r.delta > 0 ? '+' : ''}${r.delta}</span></div>`;
+  }
+  sb += `<div class="score-total"><span>TOTALPOENG</span><span style="color:${score >= 1 ? 'var(--success)' : 'var(--danger)'};">${score > 0 ? '+' : ''}${score}</span></div>`;
+  $('final-score-board').innerHTML = sb;
+
+  $('quizling-reveal').innerHTML = `<div class="role-card" style="text-align:center;padding:20px;">
+    <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Quizlingen var</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:var(--danger);">${quizling?.name}</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:6px;">Kategori: "${rs.category}"</div>
+  </div>`;
+}
+
+function lagnavnHitsCategory(lagnavn, category) {
+  if (!lagnavn || !category) return false;
+  const l = lagnavn.toLowerCase();
+  const c = category.toLowerCase();
+  const kw = {
+    'dyreriket':['hund','katt','fugl','fisk','bjørn','ulv','rev','elg','mus','hest','ku','gris','sau','orm','løve','tiger','elefant','panda','ape','dyr','kanin','frosk'],
+    'farger':['rød','blå','grønn','gul','hvit','svart','lilla','oransje','rosa','brun','grå','farge','turkis','beige'],
+    'mat og drikke':['mat','pizza','burger','kaffe','vann','juice','brød','ost','sushi','taco','pasta','øl','vin','saft','kake','suppe','fisk','kjøtt'],
+    'sport':['fotball','basket','tennis','ski','løp','svøm','sykkel','golf','boks','sport','kamp','ball','hockey','håndball'],
+    'musikk':['sang','musikk','note','bass','gitar','piano','beat','rock','pop','jazz','rap','melodi','konsert'],
+    'land og geografi':['norge','sverige','land','fjell','dal','hav','elv','skog','by','oslo','paris','london','europa'],
+    'filmer':['film','kino','scene','skuespill','oscar','disney','action','komedie'],
+    'teknologi':['data','pc','mobil','app','nett','kode','robot','ai','tech','internett','telefon'],
+  };
+  const words = (kw[c] || c.split(/\s+/));
+  return words.some(w => l.includes(w));
+}
+
+// ==============================
+// RESET
+// ==============================
+function resetAndHome() {
+  const rooms = getRooms();
+  if (state.roomCode) delete rooms[state.roomCode];
+  saveRooms(rooms);
+  state = { roomCode:null, myName:null, isHost:false, players:[], myId:null };
+  if (bc) { try { bc.close(); } catch(e) {} bc = null; }
+  showScreen('screen-home');
+}
+</script>
+</body>
+</html>
+

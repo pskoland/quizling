@@ -27,7 +27,7 @@ export type GamePhase =
   | 'fasit'
   | 'result';
 
-export type PowerPin = 'blue' | 'white';
+export type PowerPin = 'blue' | 'white' | 'black';
 
 export type GameMode = 'short' | 'medium' | 'long';
 
@@ -50,19 +50,26 @@ export interface GameState {
   mode: GameMode;
   players: Player[];
   hostId: string;
-  quizlingId: string | null;
+  quizlingIds: string[];
   category: string | null;
   questions: Question[];
   powerQuestions: Question[];
   lagnavn: string | null;
+  lagnavnOptions: string[];
+  quizlingLagnavnTarget: string | null;
   currentQuizQ: number;
   quizAnswers: Record<number, string>;
   powerAnswers: Record<number, Record<string, number>>;
   powerWinners: Record<number, string>;
   powerPins: Record<string, PowerPin>;
-  votes: Record<string, string>;
+  pinUsedAt: Record<string, number>;
+  votes: Record<string, string[]>;
   writerQueue: string[];
   confirmedRoles: string[];
+  fasitRevealCount: number;
+  revealStep: number;
+  previousQuizlingIds: string[];
+  questionStartedAt: number | null;
   updatedAt: number;
   createdAt: number;
 }
@@ -77,7 +84,11 @@ export interface GameAction {
     | 'submit-quiz-answer'
     | 'submit-vote'
     | 'restart-game'
-    | 'set-mode';
+    | 'set-mode'
+    | 'reveal-fasit-question'
+    | 'advance-reveal-step'
+    | 'use-pin'
+    | 'use-black-pin';
   playerId: string;
   payload?: Record<string, unknown>;
 }

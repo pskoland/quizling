@@ -10,28 +10,42 @@ export interface GameView {
   hostId: string;
   isHost: boolean;
   isQuizling?: boolean;
+  fellowQuizlings?: string[];
+  quizlingCount: number;
   category?: string;
   lagnavn: string | null;
+  lagnavnOptions?: string[];
+  quizlingLagnavnTarget?: string;
+  quizlingLagnavnSuccess?: boolean;
   currentQuestion?: { question: string; number: number };
   currentPowerQuestion?: { question: string; number: number };
   quizAnswers: Record<number, string>;
   powerAnswers: Record<number, Record<string, number>>;
   powerWinners: Record<number, string>;
   powerPins: Record<string, string>;
-  votes: Record<string, string>;
+  votes: Record<string, string[]>;
   writerId: string;
   isWriter: boolean;
   confirmedRoles: string[];
   totalPlayers: number;
-  answerSheet?: string[];
+  currentAnswerForQuizling?: string;
   myPin?: string | null;
   pinReveal?: string | null;
+  pinType?: string | null;
+  canUsePin?: boolean;
+  usedPinTypes?: string[];
+  blackPinReveal?: string | null;
+  blackPinQuestionIndex?: number;
   allQuestions?: { question: string; answer: string }[];
   allPowerQuestions?: { question: string; answer: string }[];
-  quizlingId?: string;
-  wonPowerRound?: number;
+  quizlingIds?: string[];
+  wonCurrentPowerRound?: boolean;
+  isLastPowerRound?: boolean;
   totalQuestions: number;
   totalPowerQuestions: number;
+  fasitRevealCount: number;
+  revealStep: number;
+  questionStartedAt?: number | null;
   updatedAt: number;
 }
 
@@ -121,10 +135,16 @@ export function useGame() {
   const action = async (type: string, payload?: Record<string, unknown>) => {
     if (!session) return;
     try {
+      // Optimistic update for instant-feel actions
+      if (type === 'set-mode' && payload?.mode && gameState) {
+        setGameState({ ...gameState, mode: payload.mode as GameView['mode'] });
+      }
       await api.sendAction(session.code, type, session.playerId, payload);
       await poll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action failed');
+      // Revert optimistic update on error
+      if (type === 'set-mode') await poll();
     }
   };
 
