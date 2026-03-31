@@ -22,7 +22,7 @@ export interface GameView {
   quizAnswers: Record<number, string>;
   powerAnswers: Record<number, Record<string, number>>;
   powerWinners: Record<number, string>;
-  powerPins: Record<string, string>;
+  powerPins: Record<number, string>;
   votes: Record<string, string[]>;
   writerId: string;
   isWriter: boolean;

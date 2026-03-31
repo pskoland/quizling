@@ -201,12 +201,14 @@ export async function processAction(code: string, action: GameAction): Promise<G
 
     case 'choose-pin': {
       const pin = action.payload?.pin as PowerPin;
-      game.powerPins[action.playerId] = pin;
+      const pinRoundMatch = game.phase.match(/^power-result-(\d+)$/);
+      const pinRound = pinRoundMatch ? parseInt(pinRoundMatch[1]) : 0;
+      game.powerPins[pinRound] = pin;
       break;
     }
 
     case 'use-pin': {
-      const playerPin = game.powerPins[action.playerId];
+      const playerPin = getPlayerPin(game, action.playerId);
       if (!playerPin) throw new Error('No pin to use');
       if (playerPin === 'blue') throw new Error('Blue pin activates automatically');
       if (playerPin === 'black') throw new Error('Black pin uses use-black-pin action');
@@ -217,7 +219,7 @@ export async function processAction(code: string, action: GameAction): Promise<G
     }
 
     case 'use-black-pin': {
-      const bPin = game.powerPins[action.playerId];
+      const bPin = getPlayerPin(game, action.playerId);
       if (!bPin || bPin !== 'black') throw new Error('No black pin to use');
       if (game.pinUsedAt[action.playerId] !== undefined) throw new Error('Pin already used');
       if (game.phase !== 'voting') throw new Error('Black pin can only be used during voting');
@@ -360,7 +362,7 @@ function advancePhase(game: GameState): void {
   if (powerResultMatch) {
     const round = parseInt(powerResultMatch[1]);
     const winnerId = game.powerWinners[round];
-    if (winnerId && !game.powerPins[winnerId]) {
+    if (winnerId && game.powerPins[round] === undefined) {
       throw new Error('Winner must choose a pin before advancing');
     }
     game.phase = `quiz-${powerBefore[round]}`;
@@ -415,6 +417,20 @@ function calcPowerWinner(game: GameState, round: number): void {
   game.phase = `power-result-${round}` as GameState['phase'];
 }
 
+/** Get a player's most recently chosen pin (from the latest round they won) */
+function getPlayerPin(game: GameState, playerId: string): PowerPin | null {
+  // Find rounds this player won, in descending order
+  const wonRounds = Object.entries(game.powerWinners)
+    .filter(([, pid]) => pid === playerId)
+    .map(([r]) => parseInt(r))
+    .sort((a, b) => b - a);
+  // Return their most recent pin
+  for (const round of wonRounds) {
+    if (game.powerPins[round] !== undefined) return game.powerPins[round];
+  }
+  return null;
+}
+
 export function getPlayerView(game: GameState, playerId: string): Record<string, unknown> {
   const isQuizling = game.quizlingIds.includes(playerId);
   const player = game.players.find(p => p.id === playerId);
@@ -426,12 +442,12 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
   const writerId = game.writerQueue[quizIndex % game.writerQueue.length];
   const isWriter = writerId === playerId;
 
-  const myPin = game.powerPins[playerId] ?? null;
+  const myPin = getPlayerPin(game, playerId);
 
   // Pin reveal info
   const pinUsedAtIndex = game.pinUsedAt[playerId];
   const hasPinBeenUsed = pinUsedAtIndex !== undefined;
-  const usedPinTypes = Object.values(game.powerPins);
+  const usedPinTypes = Object.values(game.powerPins) as string[];
   const modeConfig = GAME_MODES[game.mode];
   const lastPowerRound = modeConfig.powerCount - 1;
 

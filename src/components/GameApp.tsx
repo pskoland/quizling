@@ -887,7 +887,7 @@ function PowerResultScreen({
         </div>
       </Card>
 
-      {isWinner && !game.powerPins[winnerId] && (
+      {isWinner && game.powerPins[round] === undefined && (
         <div style={{ animation: 'fadeUp 0.4s ease' }}>
           <div className="text-center mb-5">
             <Tag>Velg maktpinne</Tag>
@@ -926,8 +926,8 @@ function PowerResultScreen({
 
       <div className="mt-6">
         {game.isHost ? (
-          <Btn onClick={onAdvance} disabled={!!(winnerId && !game.powerPins[winnerId])}>
-            {winnerId && !game.powerPins[winnerId] ? 'VENTER PÅ VALG' : 'NESTE'}
+          <Btn onClick={onAdvance} disabled={!!(winnerId && game.powerPins[round] === undefined)}>
+            {winnerId && game.powerPins[round] === undefined ? 'VENTER PÅ VALG' : 'NESTE'}
           </Btn>
         ) : (
           <Waiting text="Venter på valg" />
@@ -1502,8 +1502,8 @@ function ResultScreen({
 
       <Card className="text-center mb-6" style={{ animation: 'fadeUp 0.4s ease 0.2s both' }}>
         <div className={`text-[10px] tracking-[4px] uppercase text-muted/60 mb-3 ${bebas}`}>Poengsum</div>
-        <span className={`${bebas} text-[56px] leading-none ${score >= 0 ? 'text-success' : 'text-danger'}`}>
-          {score >= 0 ? '+' : ''}{score}
+        <span className={`${bebas} text-[56px] leading-none ${trofasteWin ? 'text-success' : 'text-danger'}`}>
+          {score >= 1 ? '+' : ''}{score}
         </span>
       </Card>
 

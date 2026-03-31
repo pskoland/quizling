@@ -473,7 +473,8 @@ describe('game-store', () => {
       await startGame(gameCode, hostId);
 
       const game = (await getGame(gameCode))!;
-      game.powerPins[hostId] = 'black';
+      game.powerPins[0] = 'black';
+      game.powerWinners[0] = hostId;
       game.quizAnswers = { 0: 'TestAnswer', 1: 'AnotherAnswer' };
 
       // Not usable during quiz phase
@@ -721,6 +722,74 @@ describe('game-store', () => {
       expect(updated.phase).toBe('fasit');
     });
 
+    it('same player winning both power rounds can choose a pin each time', async () => {
+      const freshGame = await createGame('Host2', 'h2');
+      const fc = freshGame.code;
+      await joinGame(fc, 'B2', 'p2-2');
+      await joinGame(fc, 'C2', 'p2-3');
+      await processAction(fc, { type: 'set-mode', playerId: 'h2', payload: { mode: 'short' } });
+      await startGame(fc, 'h2');
+
+      // Advance past rules
+      await processAction(fc, { type: 'advance-phase', playerId: 'h2' });
+      await processAction(fc, { type: 'confirm-role', playerId: 'h2' });
+      await processAction(fc, { type: 'confirm-role', playerId: 'p2-2' });
+      await processAction(fc, { type: 'confirm-role', playerId: 'p2-3' });
+      let game = await getGame(fc);
+      await processAction(fc, { type: 'submit-lagnavn', playerId: 'h2', payload: { lagnavn: game!.lagnavnOptions[0] } });
+      await processAction(fc, { type: 'advance-phase', playerId: 'h2' });
+
+      // Q0
+      await processAction(fc, { type: 'submit-quiz-answer', playerId: 'h2', payload: { answer: 'a' } });
+      await processAction(fc, { type: 'advance-phase', playerId: 'h2' });
+
+      // PQ0 — h2 answers closest (exact answer is a number, h2 always closest with 1)
+      await processAction(fc, { type: 'submit-power-answer', playerId: 'h2', payload: { answer: 1 } });
+      await processAction(fc, { type: 'submit-power-answer', playerId: 'p2-2', payload: { answer: 999999 } });
+      await processAction(fc, { type: 'submit-power-answer', playerId: 'p2-3', payload: { answer: 999998 } });
+
+      game = await getGame(fc);
+      expect(game!.phase).toBe('power-result-0');
+      expect(game!.powerWinners[0]).toBe('h2');
+
+      // h2 chooses blue pin for round 0
+      await processAction(fc, { type: 'choose-pin', playerId: 'h2', payload: { pin: 'blue' } });
+      await processAction(fc, { type: 'advance-phase', playerId: 'h2' });
+
+      // Q1, Q2
+      for (let i = 0; i < 2; i++) {
+        await processAction(fc, { type: 'submit-quiz-answer', playerId: 'h2', payload: { answer: 'a' } });
+        await processAction(fc, { type: 'advance-phase', playerId: 'h2' });
+      }
+
+      // PQ1 — same player (h2) wins again
+      await processAction(fc, { type: 'submit-power-answer', playerId: 'h2', payload: { answer: 1 } });
+      await processAction(fc, { type: 'submit-power-answer', playerId: 'p2-2', payload: { answer: 999999 } });
+      await processAction(fc, { type: 'submit-power-answer', playerId: 'p2-3', payload: { answer: 999998 } });
+
+      game = await getGame(fc);
+      expect(game!.phase).toBe('power-result-1');
+      expect(game!.powerWinners[1]).toBe('h2');
+
+      // h2 should still need to choose a pin for round 1 — advance should be blocked
+      await expect(
+        processAction(fc, { type: 'advance-phase', playerId: 'h2' })
+      ).rejects.toThrow('Winner must choose a pin before advancing');
+
+      // h2 chooses white pin for round 1
+      await processAction(fc, { type: 'choose-pin', playerId: 'h2', payload: { pin: 'white' } });
+
+      // Now player view should show both pins
+      game = await getGame(fc);
+      const view = getPlayerView(game!, 'h2');
+      expect(view.wonCurrentPowerRound).toBe(true);
+
+      // Should be able to advance now
+      await processAction(fc, { type: 'advance-phase', playerId: 'h2' });
+      game = await getGame(fc);
+      expect(game!.phase).toBe('quiz-3');
+    });
+
     it('power-result requires pin choice before advancing', async () => {
       await joinGame(gameCode, 'Bob', 'p-2');
       await joinGame(gameCode, 'Charlie', 'p-3');
@@ -857,7 +926,8 @@ describe('game-store', () => {
     it('blue pin reveals answer only on last question', async () => {
       const { code } = await setupGame();
       const game = (await getGame(code))!;
-      game.powerPins['pin-h'] = 'blue';
+      game.powerPins[0] = 'blue';
+      game.powerWinners[0] = 'pin-h';
 
       // Not last question -> no reveal
       game.phase = 'quiz-0';
@@ -874,7 +944,8 @@ describe('game-store', () => {
     it('white pin requires activation before revealing', async () => {
       const { code } = await setupGame();
       const game = (await getGame(code))!;
-      game.powerPins['pin-h'] = 'white';
+      game.powerPins[0] = 'white';
+      game.powerWinners[0] = 'pin-h';
 
       // First question -> no previous, no reveal, no canUsePin
       game.phase = 'quiz-0';
@@ -899,7 +970,8 @@ describe('game-store', () => {
     it('black pin reveals nothing when no previous answer submitted', async () => {
       const { code } = await setupGame();
       const game = (await getGame(code))!;
-      game.powerPins['pin-h'] = 'black';
+      game.powerPins[0] = 'black';
+      game.powerWinners[0] = 'pin-h';
       game.phase = 'quiz-1';
       game.quizAnswers = {}; // no answer for q0
 
@@ -921,7 +993,8 @@ describe('game-store', () => {
     it('no pin reveal outside quiz phase', async () => {
       const { code } = await setupGame();
       const game = (await getGame(code))!;
-      game.powerPins['pin-h'] = 'blue';
+      game.powerPins[0] = 'blue';
+      game.powerWinners[0] = 'pin-h';
       game.phase = 'voting';
 
       const view = getPlayerView(game, 'pin-h');
@@ -992,7 +1065,8 @@ describe('game-store', () => {
       game.lagnavn = 'TestTeam';
       game.quizAnswers = { 0: 'a', 1: 'b' };
       game.votes = { [hostId]: ['p-2'] };
-      game.powerPins[hostId] = 'blue';
+      game.powerPins[0] = 'blue';
+      game.powerWinners[0] = hostId;
       game.fasitRevealCount = 5;
       game.revealStep = 3;
 

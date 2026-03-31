@@ -62,7 +62,7 @@ export interface GameState {
   powerAnswers: Record<number, Record<string, number>>;
   powerAnswerTimestamps: Record<number, Record<string, number>>;
   powerWinners: Record<number, string>;
-  powerPins: Record<string, PowerPin>;
+  powerPins: Record<number, PowerPin>;
   pinUsedAt: Record<string, number>;
   votes: Record<string, string[]>;
   writerQueue: string[];
