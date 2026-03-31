@@ -1,6 +1,7 @@
 import { GameState, GAME_MODES } from './types';
 import { isAnswerCorrect } from './fuzzy-match';
 import { useDb, getSql } from './db';
+import { recordQuestionResult } from './question-bank';
 
 export async function initGameStats() {
   if (!useDb()) return;
@@ -39,13 +40,16 @@ export async function logGameResult(game: GameState) {
 
   game.questions.forEach((q, i) => {
     const ans = game.quizAnswers[i];
-    if (ans && isAnswerCorrect(ans, q.answer)) {
+    const correct = !!ans && isAnswerCorrect(ans, q.answer);
+    if (correct) {
       score += 1;
       correctAnswers++;
     } else {
       score -= 1;
       wrongAnswers++;
     }
+    // Track per-question stats (fire-and-forget)
+    recordQuestionResult(q.question, q.answer, correct).catch(() => {});
   });
 
   // Elimination

@@ -9,6 +9,10 @@ interface Question {
   question: string;
   answer: string;
   difficulty: string;
+  content_hash: string;
+  times_shown: number;
+  times_correct: number;
+  times_wrong: number;
   created_at: string;
 }
 
@@ -80,6 +84,10 @@ function AdminPageInner() {
   const [bulkType, setBulkType] = useState('quiz');
   const [bulkDifficulty, setBulkDifficulty] = useState('medium');
   const [showBulk, setShowBulk] = useState(false);
+
+  // CSV Import
+  const [importResult, setImportResult] = useState<{ total: number; added: number; skippedDuplicates: number; duplicates: string[]; errors: string[] } | null>(null);
+  const [importing, setImporting] = useState(false);
 
   // Edit
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -307,6 +315,60 @@ function AdminPageInner() {
     fetchQuestions();
   };
 
+  const handleExport = async (format: 'csv' | 'excel') => {
+    try {
+      const params = new URLSearchParams();
+      params.set('format', format);
+      if (filterType) params.set('type', filterType);
+      if (filterDifficulty) params.set('difficulty', filterDifficulty);
+      const res = await fetch(`/api/admin/questions/export?${params}`, {
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = format === 'csv'
+        ? `questions-${new Date().toISOString().slice(0, 10)}.csv`
+        : `questions-${new Date().toISOString().slice(0, 10)}.xls`;
+      a.click();
+      URL.revokeObjectURL(url);
+      flash(`Exported ${questions.length} questions as ${format.toUpperCase()}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Export failed');
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/admin/questions/import', {
+        method: 'POST',
+        headers: { 'x-admin-password': password },
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Import failed');
+      }
+      const result = await res.json();
+      setImportResult(result);
+      flash(`Importert ${result.added} spørsmål (${result.skippedDuplicates} duplikater hoppet over)`);
+      fetchQuestions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  };
+
   const handleUpdate = async (id: number) => {
     try {
       const res = await fetch(`/api/admin/questions/${id}`, {
@@ -518,6 +580,50 @@ function AdminPageInner() {
           </span>
         </div>
 
+        {/* Export / Import toolbar */}
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <button
+            onClick={() => handleExport('csv')}
+            className={`${bebas} px-4 py-2 text-[12px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] transition-all cursor-pointer`}
+          >
+            EXPORT CSV
+          </button>
+          <button
+            onClick={() => handleExport('excel')}
+            className={`${bebas} px-4 py-2 text-[12px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] transition-all cursor-pointer`}
+          >
+            EXPORT EXCEL
+          </button>
+          <label className={`${bebas} px-4 py-2 text-[12px] tracking-[2px] bg-accent2/20 border border-accent2/30 text-accent2 rounded hover:bg-accent2/30 transition-all cursor-pointer ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+            {importing ? 'IMPORTERER...' : 'IMPORT CSV'}
+            <input
+              type="file"
+              accept=".csv,.tsv,.xls,.txt"
+              onChange={handleImportFile}
+              className="hidden"
+              disabled={importing}
+            />
+          </label>
+          {importResult && (
+            <div className="text-xs text-muted">
+              {importResult.added} lagt til, {importResult.skippedDuplicates} duplikater
+              {importResult.errors.length > 0 && `, ${importResult.errors.length} feil`}
+            </div>
+          )}
+        </div>
+
+        {/* Import result details */}
+        {importResult && importResult.skippedDuplicates > 0 && (
+          <div className="mb-6 px-4 py-3 bg-gold/10 border border-gold/30 rounded-md text-gold text-xs">
+            <span className="font-bold">Duplikater hoppet over:</span>{' '}
+            {importResult.duplicates.map((d, i) => (
+              <span key={i}>{i > 0 ? ', ' : ''}&quot;{d}&quot;</span>
+            ))}
+            {importResult.skippedDuplicates > importResult.duplicates.length && ` og ${importResult.skippedDuplicates - importResult.duplicates.length} til...`}
+            <button onClick={() => setImportResult(null)} className="float-right text-gold/60 hover:text-gold cursor-pointer ml-2">x</button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Questions list */}
           <div className="lg:col-span-2">
@@ -632,6 +738,25 @@ function AdminPageInner() {
                             <p className="text-xs text-gold/80">
                               Svar: {q.answer}
                             </p>
+                            {q.times_shown > 0 && (
+                              <div className="flex items-center gap-3 mt-1.5">
+                                <span className="text-[10px] text-muted/50">
+                                  Vist {q.times_shown}x
+                                </span>
+                                <span className="text-[10px] text-success/70">
+                                  {q.times_correct} riktig
+                                </span>
+                                <span className="text-[10px] text-danger/70">
+                                  {q.times_wrong} feil
+                                </span>
+                                <span className={`text-[10px] font-bold ${
+                                  (q.times_correct / q.times_shown) >= 0.7 ? 'text-success/60' :
+                                  (q.times_correct / q.times_shown) >= 0.4 ? 'text-gold/60' : 'text-danger/60'
+                                }`}>
+                                  {Math.round((q.times_correct / q.times_shown) * 100)}% riktig
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <div className="flex gap-1 shrink-0">
                             <button
