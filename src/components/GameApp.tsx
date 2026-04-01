@@ -951,9 +951,10 @@ function QuizQuestionScreen({
   onUsePin: () => void;
 }) {
   const [answer, setAnswer] = useState('');
+  const [editing, setEditing] = useState(false);
   const q = game.currentQuestion;
   const qi = q ? q.number - 1 : 0;
-  const answered = game.quizAnswers[qi] !== undefined;
+  const answered = game.quizAnswers[qi] !== undefined && !editing;
   const totalQ = game.totalQuestions;
 
   const [elapsed, setElapsed] = useState(0);
@@ -1028,7 +1029,7 @@ function QuizQuestionScreen({
                 placeholder="Skriv lagets svar..."
               />
             </div>
-            <Btn onClick={() => onSubmit(answer)} disabled={!answer.trim()}>LEVER SVAR</Btn>
+            <Btn onClick={() => { onSubmit(answer); setEditing(false); }} disabled={!answer.trim()}>LEVER SVAR</Btn>
           </div>
         ) : (
           <Waiting text="Skriveren leverer svaret" />
@@ -1038,7 +1039,15 @@ function QuizQuestionScreen({
           <Card className="text-center mb-6">
             <p className="text-xs text-muted/70 mb-2 tracking-wide">Levert svar</p>
             {game.isWriter ? (
-              <p className="text-white font-medium text-base">{game.quizAnswers[qi]}</p>
+              <>
+                <p className="text-white font-medium text-base">{game.quizAnswers[qi]}</p>
+                <button
+                  onClick={() => { setAnswer(game.quizAnswers[qi] || ''); setEditing(true); }}
+                  className="mt-3 text-xs text-muted/60 hover:text-white/80 underline underline-offset-2 cursor-pointer transition-colors"
+                >
+                  Endre svar
+                </button>
+              </>
             ) : (
               <p className="text-muted/60 text-sm italic">Svaret er levert</p>
             )}

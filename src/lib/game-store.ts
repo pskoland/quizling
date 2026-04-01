@@ -233,7 +233,6 @@ export async function processAction(code: string, action: GameAction): Promise<G
     case 'submit-quiz-answer': {
       if (!game.phase.startsWith('quiz-')) throw new Error('Not in quiz phase');
       const qi = getCurrentQuizIndex(game);
-      if (game.quizAnswers[qi] !== undefined) throw new Error('Answer already submitted');
       const answer = action.payload?.answer;
       if (typeof answer !== 'string' || answer.length > 500) throw new Error('Invalid answer');
       game.quizAnswers[qi] = answer;
