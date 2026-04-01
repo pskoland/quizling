@@ -529,17 +529,25 @@ function AdminPageInner() {
     <div className={`relative z-10 min-h-screen ${dm} text-white`}>
       {/* Header */}
       <header className="border-b border-white/[0.06] bg-white/[0.02]">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
+          <div className="flex items-center justify-between mb-3 sm:mb-0">
             <h1
-              className={`${bebas} text-[32px] sm:text-[40px] leading-none`}
+              className={`${bebas} text-[28px] sm:text-[40px] leading-none`}
               style={{
                 textShadow: '0 0 40px rgba(139,0,0,0.5)',
               }}
             >
               QUIZLING ADMIN
             </h1>
-            <div className="flex gap-1 ml-4">
+            <a
+              href="/"
+              className="text-[11px] tracking-[2px] uppercase text-muted hover:text-white transition-colors sm:hidden"
+            >
+              Tilbake
+            </a>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1">
               <button
                 onClick={() => switchTab('questions')}
                 className={`px-3 py-1.5 text-[10px] tracking-[2px] uppercase rounded transition-colors cursor-pointer ${
@@ -565,18 +573,18 @@ function AdminPageInner() {
                 Analytics
               </button>
             </div>
+            <a
+              href="/"
+              className="hidden sm:block text-[11px] tracking-[2px] uppercase text-muted hover:text-white transition-colors"
+            >
+              Back to Game
+            </a>
           </div>
-          <a
-            href="/"
-            className="text-[11px] tracking-[2px] uppercase text-muted hover:text-white transition-colors"
-          >
-            Back to Game
-          </a>
         </div>
       </header>
 
       {activeTab === 'questions' && (
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Alerts */}
         {error && (
           <div className="mb-6 px-4 py-3 bg-danger/10 border border-danger/30 rounded-md text-danger text-sm">
@@ -1062,7 +1070,7 @@ function AdminPageInner() {
       )}
 
       {activeTab === 'lagnavn' && (
-        <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {error && (
             <div className="mb-6 px-4 py-3 bg-danger/10 border border-danger/30 rounded-md text-danger text-sm">
               {error}
@@ -1194,7 +1202,7 @@ function AdminPageInner() {
       )}
 
       {activeTab === 'analytics' && (
-        <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {statsLoading ? (
             <div className="flex items-center justify-center py-16">
               <div className="w-8 h-8 border-2 border-white/10 border-t-accent2 rounded-full animate-spin" />
