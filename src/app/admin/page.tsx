@@ -408,7 +408,10 @@ function AdminPageInner() {
         headers: authHeaders(),
         body: JSON.stringify(editFields),
       });
-      if (!res.ok) throw new Error('Failed to update question');
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || `Update failed (${res.status})`);
+      }
       setEditingId(null);
       setEditFields({});
       flash('Question updated');
@@ -747,9 +750,10 @@ function AdminPageInner() {
                         <div className="flex gap-3">
                           <select
                             value={editFields.type || 'quiz'}
-                            onChange={(e) =>
-                              setEditFields({ ...editFields, type: e.target.value })
-                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditFields(prev => ({ ...prev, type: val }));
+                            }}
                             className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 text-sm text-white outline-none"
                           >
                             <option value="quiz">Quiz</option>
@@ -757,12 +761,10 @@ function AdminPageInner() {
                           </select>
                           <select
                             value={editFields.difficulty || 'medium'}
-                            onChange={(e) =>
-                              setEditFields({
-                                ...editFields,
-                                difficulty: e.target.value,
-                              })
-                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditFields(prev => ({ ...prev, difficulty: val }));
+                            }}
                             className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 text-sm text-white outline-none"
                           >
                             <option value="easy">Easy</option>
@@ -772,23 +774,19 @@ function AdminPageInner() {
                         </div>
                         <textarea
                           value={editFields.question || ''}
-                          onChange={(e) =>
-                            setEditFields({
-                              ...editFields,
-                              question: e.target.value,
-                            })
-                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditFields(prev => ({ ...prev, question: val }));
+                          }}
                           className="w-full bg-white/[0.04] border border-white/[0.08] rounded px-3 py-2 text-sm text-white outline-none focus:border-accent2/60 resize-none"
                           rows={2}
                         />
                         <input
                           value={editFields.answer || ''}
-                          onChange={(e) =>
-                            setEditFields({
-                              ...editFields,
-                              answer: e.target.value,
-                            })
-                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditFields(prev => ({ ...prev, answer: val }));
+                          }}
                           className="w-full bg-white/[0.04] border border-white/[0.08] rounded px-3 py-2 text-sm text-white outline-none focus:border-accent2/60"
                           placeholder="Answer"
                         />
