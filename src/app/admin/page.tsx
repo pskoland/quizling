@@ -619,6 +619,12 @@ function AdminPageInner() {
           </select>
           <span className="text-muted text-xs ml-auto flex items-center gap-3">
             {questions.length} question{questions.length !== 1 ? 's' : ''}
+            <button
+              onClick={handleInitDb}
+              className="text-muted/60 hover:text-white text-[10px] tracking-[2px] uppercase cursor-pointer transition-colors"
+            >
+              Init DB
+            </button>
             {questions.length > 0 && (
               <button
                 onClick={handleDeleteAll}
@@ -740,9 +746,15 @@ function AdminPageInner() {
             ) : questions.length === 0 ? (
               <div className="py-16 text-center">
                 <p className="text-muted text-sm mb-2">No questions found</p>
-                <p className="text-muted/60 text-xs">
+                <p className="text-muted/60 text-xs mb-4">
                   Add some questions or click Init DB to set up the table
                 </p>
+                <button
+                  onClick={handleInitDb}
+                  className={`${bebas} px-5 py-2.5 text-[13px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] transition-all cursor-pointer`}
+                >
+                  INIT DB
+                </button>
               </div>
             ) : (
               <div className="space-y-2">
