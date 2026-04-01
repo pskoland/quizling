@@ -149,28 +149,22 @@ export async function updateQuestion(
   fields: Partial<Pick<QuestionRow, 'type' | 'question' | 'answer' | 'difficulty'>>,
 ): Promise<QuestionRow> {
   const sql = getSql();
-  // Recompute hash if question or answer changed
-  let newHash: string | null = null;
-  if (fields.question || fields.answer) {
-    // Fetch current to merge for hash
-    const current = (await sql`SELECT question, answer FROM question_bank WHERE id = ${id}`) as { question: string; answer: string }[];
-    if (current[0]) {
-      newHash = questionHash(
-        fields.question ?? current[0].question,
-        fields.answer ?? current[0].answer,
-      );
-    }
-  }
   const rows = (await sql`
     UPDATE question_bank SET
       type = COALESCE(${fields.type ?? null}, type),
       question = COALESCE(${fields.question ?? null}, question),
       answer = COALESCE(${fields.answer ?? null}, answer),
-      difficulty = COALESCE(${fields.difficulty ?? null}, difficulty),
-      content_hash = COALESCE(${newHash}, content_hash)
+      difficulty = COALESCE(${fields.difficulty ?? null}, difficulty)
     WHERE id = ${id}
     RETURNING *
   `) as QuestionRow[];
+  // Update content_hash separately (column may not exist in older schemas)
+  if (rows[0] && (fields.question || fields.answer)) {
+    const newHash = questionHash(rows[0].question, rows[0].answer);
+    await sql`
+      UPDATE question_bank SET content_hash = ${newHash} WHERE id = ${id}
+    `.catch(() => {});
+  }
   return rows[0];
 }
 

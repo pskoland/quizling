@@ -90,14 +90,12 @@ describe('question-bank', () => {
   describe('updateQuestion', () => {
     it('updates a question by id and returns the updated row', async () => {
       const { updateQuestion } = await loadModule();
-      const current = { question: 'Old', answer: 'A1' };
       const updated = { id: 1, type: 'quiz', question: 'Updated', answer: 'A1', difficulty: 'hard' };
-      // First call: SELECT current question/answer for hash. Second call: UPDATE
-      mockSql.mockResolvedValueOnce([current]).mockResolvedValueOnce([updated]);
+      // First call: UPDATE RETURNING. Second call: hash update (fire-and-forget)
+      mockSql.mockResolvedValueOnce([updated]).mockResolvedValueOnce([]);
       const result = await updateQuestion(1, { question: 'Updated', difficulty: 'hard' });
       expect(result).toEqual(updated);
-      // First call is the SELECT, second is the UPDATE
-      const sqlText = mockSql.mock.calls[1][0].join('');
+      const sqlText = mockSql.mock.calls[0][0].join('');
       expect(sqlText).toContain('UPDATE question_bank');
     });
   });
