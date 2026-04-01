@@ -413,8 +413,10 @@ function AdminPageInner() {
         body: JSON.stringify(editFields),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || `Update failed (${res.status})`);
+        const text = await res.text();
+        let detail = '';
+        try { detail = JSON.parse(text)?.error || text; } catch { detail = text; }
+        throw new Error(`${res.status}: ${detail}`);
       }
       setEditingId(null);
       setEditFields({});

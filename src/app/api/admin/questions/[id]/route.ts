@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { updateQuestion, deleteQuestion } from '@/lib/question-bank';
+import { updateQuestion, deleteQuestion, initQuestionBank } from '@/lib/question-bank';
 import { checkAdminAuth } from '@/lib/admin-auth';
 
 export async function PUT(
@@ -13,7 +13,14 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const { type, question, answer, difficulty } = body;
-    const row = await updateQuestion(Number(id), { type, question, answer, difficulty });
+    let row;
+    try {
+      row = await updateQuestion(Number(id), { type, question, answer, difficulty });
+    } catch (dbErr) {
+      // Auto-migrate schema and retry once
+      await initQuestionBank();
+      row = await updateQuestion(Number(id), { type, question, answer, difficulty });
+    }
     if (!row) {
       return Response.json({ error: 'Question not found' }, { status: 404 });
     }
