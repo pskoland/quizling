@@ -107,6 +107,8 @@ function AdminPageInner() {
   // Edit
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFields, setEditFields] = useState<Partial<Question>>({});
+  const [editError, setEditError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -402,6 +404,8 @@ function AdminPageInner() {
   };
 
   const handleUpdate = async (id: number) => {
+    setEditError(null);
+    setSaving(true);
     try {
       const res = await fetch(`/api/admin/questions/${id}`, {
         method: 'PUT',
@@ -417,7 +421,9 @@ function AdminPageInner() {
       flash('Question updated');
       fetchQuestions();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
+      setEditError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -449,6 +455,7 @@ function AdminPageInner() {
 
   const startEdit = (q: Question) => {
     setEditingId(q.id);
+    setEditError(null);
     setEditFields({
       type: q.type,
       question: q.question,
@@ -790,18 +797,26 @@ function AdminPageInner() {
                           className="w-full bg-white/[0.04] border border-white/[0.08] rounded px-3 py-2 text-sm text-white outline-none focus:border-accent2/60"
                           placeholder="Answer"
                         />
+                        {editError && (
+                          <div className="px-3 py-2 bg-danger/10 border border-danger/30 rounded text-danger text-xs">
+                            {editError}
+                          </div>
+                        )}
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleUpdate(q.id)}
-                            className={`${bebas} px-4 py-2 text-[13px] tracking-[2px] bg-accent2 text-white rounded hover:bg-[#cc0000] transition-all cursor-pointer`}
+                            disabled={saving}
+                            className={`${bebas} px-4 py-2 text-[13px] tracking-[2px] bg-accent2 text-white rounded hover:bg-[#cc0000] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
                           >
-                            SAVE
+                            {saving ? 'LAGRER...' : 'SAVE'}
                           </button>
                           <button
                             onClick={() => {
                               setEditingId(null);
                               setEditFields({});
+                              setEditError(null);
                             }}
+                            disabled={saving}
                             className={`${bebas} px-4 py-2 text-[13px] tracking-[2px] bg-white/[0.04] border border-white/[0.08] rounded hover:bg-white/[0.07] transition-all cursor-pointer`}
                           >
                             CANCEL
