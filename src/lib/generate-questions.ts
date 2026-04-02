@@ -113,7 +113,7 @@ Svar KUN med gyldig JSON, ingen annen tekst:
 
     return { category, questions: FALLBACK.questions.slice(0, quizCount), powerQuestions: FALLBACK.powerQuestions.slice(0, powerCount) };
   } catch {
-    return FALLBACK;
+    return { ...FALLBACK, questions: FALLBACK.questions.slice(0, quizCount), powerQuestions: FALLBACK.powerQuestions.slice(0, powerCount) };
   }
 }
 

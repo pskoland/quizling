@@ -13,20 +13,36 @@ async function loadGame(code: string): Promise<GameState | null> {
   return rows[0].state as GameState;
 }
 
-async function saveGame(game: GameState): Promise<void> {
+async function saveGame(game: GameState, expectedUpdatedAt?: number): Promise<void> {
   if (!useDb()) {
     memGames.set(game.code, game);
     return;
   }
   const sql = getSql();
   const stateJson = JSON.stringify(game);
-  await sql`
-    INSERT INTO games (code, state, updated_at, created_at)
-    VALUES (${game.code}, ${stateJson}, ${game.updatedAt}, ${game.createdAt})
-    ON CONFLICT (code) DO UPDATE SET
-      state = ${stateJson},
-      updated_at = ${game.updatedAt}
-  `;
+  if (expectedUpdatedAt !== undefined) {
+    // Optimistic concurrency: only update if no one else changed the state
+    const result = await sql`
+      UPDATE games SET state = ${stateJson}, updated_at = ${game.updatedAt}
+      WHERE code = ${game.code} AND updated_at = ${expectedUpdatedAt}
+      RETURNING code
+    ` as Record<string, unknown>[];
+    if (result.length === 0) {
+      throw new ConcurrencyError();
+    }
+  } else {
+    await sql`
+      INSERT INTO games (code, state, updated_at, created_at)
+      VALUES (${game.code}, ${stateJson}, ${game.updatedAt}, ${game.createdAt})
+      ON CONFLICT (code) DO UPDATE SET
+        state = ${stateJson},
+        updated_at = ${game.updatedAt}
+    `;
+  }
+}
+
+class ConcurrencyError extends Error {
+  constructor() { super('Concurrent modification'); }
 }
 
 async function codeExists(code: string): Promise<boolean> {
@@ -83,8 +99,8 @@ export async function createGame(hostName: string, hostId: string): Promise<Game
     quizlingLagnavnTarget: null,
     currentQuizQ: 0,
     quizAnswers: {},
-    powerAnswers: { 0: {}, 1: {} },
-    powerAnswerTimestamps: { 0: {}, 1: {} },
+    powerAnswers: {},
+    powerAnswerTimestamps: {},
     powerWinners: {},
     powerPins: {},
     pinUsedAt: {},
@@ -150,8 +166,22 @@ export async function startGame(code: string, hostId: string): Promise<GameState
 }
 
 export async function processAction(code: string, action: GameAction): Promise<GameState> {
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await processActionOnce(code, action);
+    } catch (e) {
+      if (e instanceof ConcurrencyError && attempt < MAX_RETRIES) continue;
+      throw e;
+    }
+  }
+  throw new Error('Failed after retries');
+}
+
+async function processActionOnce(code: string, action: GameAction): Promise<GameState> {
   const game = await loadGame(code);
   if (!game) throw new Error('Game not found');
+  const prevUpdatedAt = game.updatedAt;
 
   // Validate that the acting player is in the game
   if (!game.players.some(p => p.id === action.playerId)) {
@@ -188,7 +218,9 @@ export async function processAction(code: string, action: GameAction): Promise<G
 
     case 'submit-power-answer': {
       const powerMatch = game.phase.match(/^power-q-(\d+)$/);
-      const round = powerMatch ? parseInt(powerMatch[1]) : 0;
+      if (!powerMatch) throw new Error('Not in power question phase');
+      const round = parseInt(powerMatch[1]);
+      if (!game.powerQuestions[round]) throw new Error('Invalid power round');
       if (!game.powerAnswers[round]) game.powerAnswers[round] = {};
       if (!game.powerAnswerTimestamps[round]) game.powerAnswerTimestamps[round] = {};
       game.powerAnswers[round][action.playerId] = Number(action.payload?.answer);
@@ -316,7 +348,7 @@ export async function processAction(code: string, action: GameAction): Promise<G
   }
 
   game.updatedAt = Date.now();
-  await saveGame(game);
+  await saveGame(game, prevUpdatedAt);
   return game;
 }
 
@@ -394,8 +426,10 @@ function advancePhase(game: GameState): void {
 }
 
 function calcPowerWinner(game: GameState, round: number): void {
-  const correctAnswer = Number(game.powerQuestions[round].answer);
-  const answers = game.powerAnswers[round];
+  const pq = game.powerQuestions[round];
+  if (!pq) return; // No question for this round — skip
+  const correctAnswer = Number(pq.answer);
+  const answers = game.powerAnswers[round] ?? {};
   const timestamps = game.powerAnswerTimestamps?.[round] ?? {};
   let winnerId = '';
   let bestDiff = Infinity;
