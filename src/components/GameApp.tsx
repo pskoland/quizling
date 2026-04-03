@@ -1032,7 +1032,7 @@ function QuizQuestionScreen({
             <Btn onClick={() => { onSubmit(answer); setEditing(false); }} disabled={!answer.trim()}>LEVER SVAR</Btn>
           </div>
         ) : (
-          <Waiting text="Skriveren leverer svaret" />
+          <Waiting text={`${game.players.find(p => p.id === game.writerId)?.name ?? 'Skriveren'} skriver svaret`} />
         )
       ) : (
         <div style={{ animation: 'scaleIn 0.3s ease' }}>
@@ -1102,9 +1102,10 @@ function VotingScreen({
               <button
                 key={i}
                 onClick={() => onUseBlackPin(i)}
-                className="w-full text-left px-4 py-2.5 bg-white/[0.03] rounded border border-white/[0.06] hover:border-gold/30 hover:bg-gold/[0.05] transition-all cursor-pointer text-sm text-white/70"
+                className="w-full text-left px-4 py-3 bg-white/[0.03] rounded border border-white/[0.06] hover:border-gold/30 hover:bg-gold/[0.05] transition-all cursor-pointer"
               >
-                Spørsmål {i + 1}
+                <span className="text-[10px] tracking-[2px] uppercase text-muted/60">Spørsmål {i + 1}</span>
+                <p className="text-sm text-white/70 mt-0.5 leading-snug">{game.questionTexts?.[i] ?? `Spørsmål ${i + 1}`}</p>
               </button>
             ))}
           </div>
@@ -1114,7 +1115,7 @@ function VotingScreen({
       {/* Black pin reveal */}
       {game.blackPinReveal && game.blackPinQuestionIndex !== undefined && (
         <Alert type="warning">
-          Svart pinne: Lagets svar på spørsmål {game.blackPinQuestionIndex + 1} var «{game.blackPinReveal}»
+          Svart pinne: «{game.questionTexts?.[game.blackPinQuestionIndex] ?? `Spørsmål ${game.blackPinQuestionIndex + 1}`}» — Lagets svar: «{game.blackPinReveal}»
         </Alert>
       )}
 

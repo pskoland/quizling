@@ -548,6 +548,10 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
     blackPinQuestionIndex: myPin === 'black' && hasPinBeenUsed ? pinUsedAtIndex : undefined,
     fasitRevealCount: game.fasitRevealCount ?? 0,
     revealStep: game.revealStep ?? 0,
+    // During voting, expose question texts (not answers) for black pin UI
+    ...(game.phase === 'voting' ? {
+      questionTexts: game.questions.map(q => q.question),
+    } : {}),
     ...(isPostGame || game.phase.startsWith('power-result') ? {
       allQuestions: game.questions,
       allPowerQuestions: game.powerQuestions,
