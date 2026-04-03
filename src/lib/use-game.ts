@@ -36,6 +36,7 @@ export interface GameView {
   usedPinTypes?: string[];
   blackPinReveal?: string | null;
   blackPinQuestionIndex?: number;
+  questionTexts?: string[];
   allQuestions?: { question: string; answer: string }[];
   allPowerQuestions?: { question: string; answer: string }[];
   quizlingIds?: string[];
