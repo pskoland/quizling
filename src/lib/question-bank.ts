@@ -91,13 +91,13 @@ export async function getQuestionsRandom(type: string, count: number, difficulty
       ? ((await sql`
           SELECT * FROM question_bank
           WHERE type = ${type} AND difficulty = ${difficulty}
-            AND (content_hash IS NULL OR content_hash NOT IN ${sql(excludeHashes!)})
+            AND (content_hash IS NULL OR NOT (content_hash = ANY(${excludeHashes!})))
           ORDER BY times_shown ASC, RANDOM() LIMIT ${count}
         `) as QuestionRow[])
       : ((await sql`
           SELECT * FROM question_bank
           WHERE type = ${type}
-            AND (content_hash IS NULL OR content_hash NOT IN ${sql(excludeHashes!)})
+            AND (content_hash IS NULL OR NOT (content_hash = ANY(${excludeHashes!})))
           ORDER BY times_shown ASC, RANDOM() LIMIT ${count}
         `) as QuestionRow[]);
 
@@ -227,7 +227,7 @@ export async function getSeenHashesForDevices(deviceIds: string[]): Promise<stri
   const sql = getSql();
   const rows = (await sql`
     SELECT DISTINCT content_hash FROM player_seen_questions
-    WHERE device_id IN ${sql(deviceIds)}
+    WHERE device_id = ANY(${deviceIds})
   `) as { content_hash: string }[];
   return rows.map(r => r.content_hash);
 }
