@@ -8,13 +8,13 @@ export async function POST(
   try {
     const { code } = await params;
     const body = await request.json();
-    const { playerName, playerId } = body;
+    const { playerName, playerId, deviceId } = body;
 
     if (!playerName || !playerId) {
       return NextResponse.json({ error: 'Missing playerName or playerId' }, { status: 400 });
     }
 
-    await joinGame(code, playerName, playerId);
+    await joinGame(code, playerName, playerId, deviceId);
     return NextResponse.json({ ok: true });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';

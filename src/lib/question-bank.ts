@@ -46,6 +46,8 @@ export async function initQuestionBank(): Promise<void> {
     UPDATE question_bank SET content_hash = 'legacy-' || id
     WHERE content_hash IS NULL
   `.catch(() => {});
+  // Init player seen questions table
+  await initPlayerSeenQuestions().catch(() => {});
 }
 
 export async function getQuestions(
@@ -203,4 +205,46 @@ export async function deleteAllQuestions(): Promise<number> {
   const sql = getSql();
   const rows = (await sql`DELETE FROM question_bank RETURNING id`) as { id: number }[];
   return rows.length;
+}
+
+// --- Per-player seen questions tracking ---
+
+export async function initPlayerSeenQuestions(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS player_seen_questions (
+      device_id TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      seen_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (device_id, content_hash)
+    )
+  `;
+}
+
+/** Get all content hashes seen by any of the given device IDs */
+export async function getSeenHashesForDevices(deviceIds: string[]): Promise<string[]> {
+  if (!deviceIds.length) return [];
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT DISTINCT content_hash FROM player_seen_questions
+    WHERE device_id IN ${sql(deviceIds)}
+  `) as { content_hash: string }[];
+  return rows.map(r => r.content_hash);
+}
+
+/** Record that these players saw these questions */
+export async function recordSeenQuestions(deviceIds: string[], contentHashes: string[]): Promise<void> {
+  if (!deviceIds.length || !contentHashes.length) return;
+  const sql = getSql();
+  const rows = deviceIds.flatMap(did =>
+    contentHashes.map(hash => ({ device_id: did, content_hash: hash }))
+  );
+  // Batch insert, ignore duplicates
+  for (const row of rows) {
+    await sql`
+      INSERT INTO player_seen_questions (device_id, content_hash)
+      VALUES (${row.device_id}, ${row.content_hash})
+      ON CONFLICT DO NOTHING
+    `;
+  }
 }

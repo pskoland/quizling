@@ -2,6 +2,8 @@ export interface Player {
   id: string;
   name: string;
   isHost: boolean;
+  /** Persistent device identifier for cross-game question dedup */
+  deviceId?: string;
 }
 
 export interface Question {

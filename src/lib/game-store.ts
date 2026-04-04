@@ -2,6 +2,7 @@ import { GameState, GameAction, PowerPin, GameMode, GAME_MODES } from './types';
 import { generateQuestions, generateLagnavnOptions } from './generate-questions';
 import { logGameResult } from './game-stats';
 import { useDb, getSql } from './db';
+import { getSeenHashesForDevices, recordSeenQuestions } from './question-bank';
 
 const memGames = new Map<string, GameState>();
 
@@ -66,13 +67,13 @@ function pickQuizlings(players: { id: string }[], previousIds: string[], mode: '
   return picked;
 }
 
-export async function createGame(hostName: string, hostId: string): Promise<GameState> {
+export async function createGame(hostName: string, hostId: string, deviceId?: string): Promise<GameState> {
   const code = await generateCode();
   const game: GameState = {
     code,
     phase: 'lobby',
     mode: 'long',
-    players: [{ id: hostId, name: hostName, isHost: true }],
+    players: [{ id: hostId, name: hostName, isHost: true, deviceId }],
     hostId,
     quizlingIds: [],
     category: null,
@@ -107,7 +108,7 @@ export async function getGame(code: string): Promise<GameState | null> {
   return loadGame(code);
 }
 
-export async function joinGame(code: string, playerName: string, playerId: string): Promise<GameState> {
+export async function joinGame(code: string, playerName: string, playerId: string, deviceId?: string): Promise<GameState> {
   const game = await loadGame(code);
   if (!game) throw new Error('Game not found');
   if (game.phase !== 'lobby') throw new Error('Game already started');
@@ -116,13 +117,34 @@ export async function joinGame(code: string, playerName: string, playerId: strin
     throw new Error('Name already taken');
   }
 
-  game.players.push({ id: playerId, name: playerName, isHost: false });
+  game.players.push({ id: playerId, name: playerName, isHost: false, deviceId });
   game.updatedAt = Date.now();
   await saveGame(game);
   return game;
 }
 
-export async function startGame(code: string, hostId: string, seenHashes?: string[]): Promise<GameState> {
+/** Collect seen question hashes for all players with deviceIds (DB only) */
+async function getSeenHashesForPlayers(game: GameState): Promise<string[] | undefined> {
+  if (!useDb()) return undefined;
+  const deviceIds = game.players.map(p => p.deviceId).filter((d): d is string => !!d);
+  if (!deviceIds.length) return undefined;
+  try {
+    const hashes = await getSeenHashesForDevices(deviceIds);
+    return hashes.length > 0 ? hashes : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Record this game's questions as seen for all players with deviceIds */
+async function recordSeenForPlayers(game: GameState): Promise<void> {
+  if (!useDb() || !game.questionHashes.length) return;
+  const deviceIds = game.players.map(p => p.deviceId).filter((d): d is string => !!d);
+  if (!deviceIds.length) return;
+  await recordSeenQuestions(deviceIds, game.questionHashes);
+}
+
+export async function startGame(code: string, hostId: string): Promise<GameState> {
   const game = await loadGame(code);
   if (!game) throw new Error('Game not found');
   if (game.hostId !== hostId) throw new Error('Only host can start');
@@ -131,12 +153,18 @@ export async function startGame(code: string, hostId: string, seenHashes?: strin
 
   game.quizlingIds = pickQuizlings(game.players, game.previousQuizlingIds, game.mode);
 
+  // Query seen questions for all players in this game
+  const excludeHashes = await getSeenHashesForPlayers(game);
+
   const modeConfig = GAME_MODES[game.mode];
-  const generated = await generateQuestions(undefined, modeConfig.quizCount, modeConfig.powerCount, seenHashes);
+  const generated = await generateQuestions(undefined, modeConfig.quizCount, modeConfig.powerCount, excludeHashes);
   game.category = generated.category;
   game.questions = generated.questions;
   game.powerQuestions = generated.powerQuestions;
   game.questionHashes = generated.questionHashes;
+
+  // Record these questions as seen for all players (fire-and-forget)
+  recordSeenForPlayers(game).catch(() => {});
   game.writerQueue = game.players.map(p => p.id);
   const lagnavnOpts = await generateLagnavnOptions();
   game.lagnavnOptions = lagnavnOpts;
@@ -290,13 +318,14 @@ export async function processAction(code: string, action: GameAction): Promise<G
       if (action.playerId !== game.hostId) throw new Error('Only host can restart');
       game.previousQuizlingIds = game.quizlingIds;
       const modeConfig = GAME_MODES[game.mode];
-      const restartSeenHashes = (action.payload?.seenHashes as string[] | undefined);
-      const generated = await generateQuestions(undefined, modeConfig.quizCount, modeConfig.powerCount, restartSeenHashes);
+      const restartExclude = await getSeenHashesForPlayers(game);
+      const generated = await generateQuestions(undefined, modeConfig.quizCount, modeConfig.powerCount, restartExclude);
       game.quizlingIds = pickQuizlings(game.players, game.previousQuizlingIds, game.mode);
       game.category = generated.category;
       game.questions = generated.questions;
       game.powerQuestions = generated.powerQuestions;
       game.questionHashes = generated.questionHashes;
+      recordSeenForPlayers(game).catch(() => {});
       game.writerQueue = game.players.map(p => p.id);
       const restartLagnavn = await generateLagnavnOptions();
       game.lagnavnOptions = restartLagnavn;
@@ -567,7 +596,6 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
     totalQuestions: game.questions.length,
     totalPowerQuestions: game.powerQuestions.length,
     questionStartedAt: game.questionStartedAt,
-    questionHashes: game.questionHashes ?? [],
     updatedAt: game.updatedAt,
   };
 }

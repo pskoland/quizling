@@ -2,23 +2,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from './api-client';
 
-const SEEN_HASHES_KEY = 'quizling-seen-hashes';
+const DEVICE_ID_KEY = 'quizling-device-id';
 
-function getSeenHashes(): string[] {
+/** Persistent device identifier — survives across sessions and games */
+function getDeviceId(): string {
   try {
-    const raw = localStorage.getItem(SEEN_HASHES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
   } catch {
-    return [];
-  }
-}
-
-/** Store only the latest game's hashes — server-side times_shown handles long-term rotation */
-function setSeenHashes(hashes: string[]): void {
-  try {
-    localStorage.setItem(SEEN_HASHES_KEY, JSON.stringify(hashes));
-  } catch {
-    // localStorage unavailable
+    // localStorage unavailable — generate ephemeral id
+    return crypto.randomUUID();
   }
 }
 
@@ -64,7 +61,6 @@ export interface GameView {
   isLastPowerRound?: boolean;
   totalQuestions: number;
   totalPowerQuestions: number;
-  questionHashes: string[];
   fasitRevealCount: number;
   revealStep: number;
   questionStartedAt?: number | null;
@@ -93,10 +89,6 @@ export function useGame() {
       if (state.updatedAt !== lastUpdateRef.current) {
         lastUpdateRef.current = state.updatedAt;
         setGameState(state);
-        // Persist current game's question hashes to avoid immediate repeats on next game
-        if (state.questionHashes?.length) {
-          setSeenHashes(state.questionHashes);
-        }
       }
     } catch {
       // Silently ignore poll errors
@@ -117,7 +109,7 @@ export function useGame() {
     setError(null);
     try {
       const playerId = crypto.randomUUID().slice(0, 8);
-      const code = await api.createGame(hostName, playerId);
+      const code = await api.createGame(hostName, playerId, getDeviceId());
       const s = { code, playerId, playerName: hostName };
       setSession(s);
       // Save to sessionStorage for reconnect
@@ -134,7 +126,7 @@ export function useGame() {
     setError(null);
     try {
       const playerId = crypto.randomUUID().slice(0, 8);
-      await api.joinGame(code, playerName, playerId);
+      await api.joinGame(code, playerName, playerId, getDeviceId());
       const s = { code, playerId, playerName };
       setSession(s);
       sessionStorage.setItem('quizling-session', JSON.stringify(s));
@@ -149,7 +141,7 @@ export function useGame() {
     if (!session) return;
     setLoading(true);
     try {
-      await api.startGame(session.code, session.playerId, getSeenHashes());
+      await api.startGame(session.code, session.playerId);
       await poll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start game');
@@ -165,11 +157,7 @@ export function useGame() {
       if (type === 'set-mode' && payload?.mode && gameState) {
         setGameState({ ...gameState, mode: payload.mode as GameView['mode'] });
       }
-      // Include seen hashes when restarting to avoid duplicate questions
-      const finalPayload = type === 'restart-game'
-        ? { ...payload, seenHashes: getSeenHashes() }
-        : payload;
-      await api.sendAction(session.code, type, session.playerId, finalPayload);
+      await api.sendAction(session.code, type, session.playerId, payload);
       await poll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action failed');

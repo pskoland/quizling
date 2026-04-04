@@ -1,31 +1,31 @@
 const BASE = '/api/games';
 
-export async function createGame(hostName: string, hostId: string): Promise<string> {
+export async function createGame(hostName: string, hostId: string, deviceId?: string): Promise<string> {
   const res = await fetch(BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'create', hostName, hostId }),
+    body: JSON.stringify({ action: 'create', hostName, hostId, deviceId }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error);
   return data.code;
 }
 
-export async function joinGame(code: string, playerName: string, playerId: string): Promise<void> {
+export async function joinGame(code: string, playerName: string, playerId: string, deviceId?: string): Promise<void> {
   const res = await fetch(`${BASE}/${code}/join`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerName, playerId }),
+    body: JSON.stringify({ playerName, playerId, deviceId }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error);
 }
 
-export async function startGame(code: string, hostId: string, seenHashes?: string[]): Promise<void> {
+export async function startGame(code: string, hostId: string): Promise<void> {
   const res = await fetch(BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'start', code, hostId, seenHashes }),
+    body: JSON.stringify({ action: 'start', code, hostId }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error);

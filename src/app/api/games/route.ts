@@ -10,16 +10,16 @@ export async function POST(request: Request) {
       if (!hostName || !hostId) {
         return NextResponse.json({ error: 'Missing hostName or hostId' }, { status: 400 });
       }
-      const game = await createGame(hostName, hostId);
+      const game = await createGame(hostName, hostId, body.deviceId);
       return NextResponse.json({ code: game.code });
     }
 
     if (action === 'start') {
-      const { code, seenHashes } = body;
+      const { code } = body;
       if (!code || !hostId) {
         return NextResponse.json({ error: 'Missing code or hostId' }, { status: 400 });
       }
-      await startGame(code, hostId, Array.isArray(seenHashes) ? seenHashes : undefined);
+      await startGame(code, hostId);
       return NextResponse.json({ ok: true });
     }
 
