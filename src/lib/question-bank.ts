@@ -78,8 +78,31 @@ export async function getQuestions(
   `) as QuestionRow[];
 }
 
-export async function getQuestionsRandom(type: string, count: number, difficulty?: string): Promise<QuestionRow[]> {
+export async function getQuestionsRandom(type: string, count: number, difficulty?: string, excludeHashes?: string[]): Promise<QuestionRow[]> {
   const sql = getSql();
+  const hasExclusions = excludeHashes && excludeHashes.length > 0;
+
+  // Try with exclusions first
+  if (hasExclusions) {
+    const rows = difficulty
+      ? ((await sql`
+          SELECT * FROM question_bank
+          WHERE type = ${type} AND difficulty = ${difficulty}
+            AND (content_hash IS NULL OR content_hash NOT IN ${sql(excludeHashes!)}  )
+          ORDER BY RANDOM() LIMIT ${count}
+        `) as QuestionRow[])
+      : ((await sql`
+          SELECT * FROM question_bank
+          WHERE type = ${type}
+            AND (content_hash IS NULL OR content_hash NOT IN ${sql(excludeHashes!)}  )
+          ORDER BY RANDOM() LIMIT ${count}
+        `) as QuestionRow[]);
+
+    // If we got enough, return them
+    if (rows.length >= count) return rows;
+    // Otherwise fall through to unrestricted query
+  }
+
   if (difficulty) {
     return (await sql`
       SELECT * FROM question_bank

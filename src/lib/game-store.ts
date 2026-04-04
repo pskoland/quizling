@@ -95,6 +95,7 @@ export async function createGame(hostName: string, hostId: string): Promise<Game
     revealStep: 0,
     previousQuizlingIds: [],
     questionStartedAt: null,
+    questionHashes: [],
     updatedAt: Date.now(),
     createdAt: Date.now(),
   };
@@ -121,7 +122,7 @@ export async function joinGame(code: string, playerName: string, playerId: strin
   return game;
 }
 
-export async function startGame(code: string, hostId: string): Promise<GameState> {
+export async function startGame(code: string, hostId: string, seenHashes?: string[]): Promise<GameState> {
   const game = await loadGame(code);
   if (!game) throw new Error('Game not found');
   if (game.hostId !== hostId) throw new Error('Only host can start');
@@ -131,10 +132,11 @@ export async function startGame(code: string, hostId: string): Promise<GameState
   game.quizlingIds = pickQuizlings(game.players, game.previousQuizlingIds, game.mode);
 
   const modeConfig = GAME_MODES[game.mode];
-  const generated = await generateQuestions(undefined, modeConfig.quizCount, modeConfig.powerCount);
+  const generated = await generateQuestions(undefined, modeConfig.quizCount, modeConfig.powerCount, seenHashes);
   game.category = generated.category;
   game.questions = generated.questions;
   game.powerQuestions = generated.powerQuestions;
+  game.questionHashes = generated.questionHashes;
   game.writerQueue = game.players.map(p => p.id);
   const lagnavnOpts = await generateLagnavnOptions();
   game.lagnavnOptions = lagnavnOpts;
@@ -288,11 +290,13 @@ export async function processAction(code: string, action: GameAction): Promise<G
       if (action.playerId !== game.hostId) throw new Error('Only host can restart');
       game.previousQuizlingIds = game.quizlingIds;
       const modeConfig = GAME_MODES[game.mode];
-      const generated = await generateQuestions(undefined, modeConfig.quizCount, modeConfig.powerCount);
+      const restartSeenHashes = (action.payload?.seenHashes as string[] | undefined);
+      const generated = await generateQuestions(undefined, modeConfig.quizCount, modeConfig.powerCount, restartSeenHashes);
       game.quizlingIds = pickQuizlings(game.players, game.previousQuizlingIds, game.mode);
       game.category = generated.category;
       game.questions = generated.questions;
       game.powerQuestions = generated.powerQuestions;
+      game.questionHashes = generated.questionHashes;
       game.writerQueue = game.players.map(p => p.id);
       const restartLagnavn = await generateLagnavnOptions();
       game.lagnavnOptions = restartLagnavn;
@@ -563,6 +567,7 @@ export function getPlayerView(game: GameState, playerId: string): Record<string,
     totalQuestions: game.questions.length,
     totalPowerQuestions: game.powerQuestions.length,
     questionStartedAt: game.questionStartedAt,
+    questionHashes: game.questionHashes ?? [],
     updatedAt: game.updatedAt,
   };
 }

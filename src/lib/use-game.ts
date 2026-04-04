@@ -2,6 +2,30 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from './api-client';
 
+const SEEN_HASHES_KEY = 'quizling-seen-hashes';
+const MAX_SEEN_HASHES = 200;
+
+function getSeenHashes(): string[] {
+  try {
+    const raw = localStorage.getItem(SEEN_HASHES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addSeenHashes(hashes: string[]): void {
+  try {
+    const existing = getSeenHashes();
+    const merged = [...new Set([...existing, ...hashes])];
+    // Keep only the most recent entries
+    const trimmed = merged.slice(-MAX_SEEN_HASHES);
+    localStorage.setItem(SEEN_HASHES_KEY, JSON.stringify(trimmed));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
 export interface GameView {
   code: string;
   phase: string;
@@ -44,6 +68,7 @@ export interface GameView {
   isLastPowerRound?: boolean;
   totalQuestions: number;
   totalPowerQuestions: number;
+  questionHashes: string[];
   fasitRevealCount: number;
   revealStep: number;
   questionStartedAt?: number | null;
@@ -72,6 +97,10 @@ export function useGame() {
       if (state.updatedAt !== lastUpdateRef.current) {
         lastUpdateRef.current = state.updatedAt;
         setGameState(state);
+        // Persist question hashes for dedup across games
+        if (state.questionHashes?.length) {
+          addSeenHashes(state.questionHashes);
+        }
       }
     } catch {
       // Silently ignore poll errors
@@ -124,7 +153,7 @@ export function useGame() {
     if (!session) return;
     setLoading(true);
     try {
-      await api.startGame(session.code, session.playerId);
+      await api.startGame(session.code, session.playerId, getSeenHashes());
       await poll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to start game');
@@ -140,7 +169,11 @@ export function useGame() {
       if (type === 'set-mode' && payload?.mode && gameState) {
         setGameState({ ...gameState, mode: payload.mode as GameView['mode'] });
       }
-      await api.sendAction(session.code, type, session.playerId, payload);
+      // Include seen hashes when restarting to avoid duplicate questions
+      const finalPayload = type === 'restart-game'
+        ? { ...payload, seenHashes: getSeenHashes() }
+        : payload;
+      await api.sendAction(session.code, type, session.playerId, finalPayload);
       await poll();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action failed');

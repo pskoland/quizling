@@ -71,6 +71,8 @@ export interface GameState {
   revealStep: number;
   previousQuizlingIds: string[];
   questionStartedAt: number | null;
+  /** Content hashes for all questions in this game (for dedup across games) */
+  questionHashes: string[];
   updatedAt: number;
   createdAt: number;
 }

@@ -21,11 +21,11 @@ export async function joinGame(code: string, playerName: string, playerId: strin
   if (!res.ok) throw new Error(data.error);
 }
 
-export async function startGame(code: string, hostId: string): Promise<void> {
+export async function startGame(code: string, hostId: string, seenHashes?: string[]): Promise<void> {
   const res = await fetch(BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'start', code, hostId }),
+    body: JSON.stringify({ action: 'start', code, hostId, seenHashes }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error);

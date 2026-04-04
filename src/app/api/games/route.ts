@@ -15,11 +15,11 @@ export async function POST(request: Request) {
     }
 
     if (action === 'start') {
-      const { code } = body;
+      const { code, seenHashes } = body;
       if (!code || !hostId) {
         return NextResponse.json({ error: 'Missing code or hostId' }, { status: 400 });
       }
-      await startGame(code, hostId);
+      await startGame(code, hostId, Array.isArray(seenHashes) ? seenHashes : undefined);
       return NextResponse.json({ ok: true });
     }
 
