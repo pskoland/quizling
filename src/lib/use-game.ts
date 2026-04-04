@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as api from './api-client';
 
 const SEEN_HASHES_KEY = 'quizling-seen-hashes';
-const MAX_SEEN_HASHES = 200;
 
 function getSeenHashes(): string[] {
   try {
@@ -14,13 +13,10 @@ function getSeenHashes(): string[] {
   }
 }
 
-function addSeenHashes(hashes: string[]): void {
+/** Store only the latest game's hashes — server-side times_shown handles long-term rotation */
+function setSeenHashes(hashes: string[]): void {
   try {
-    const existing = getSeenHashes();
-    const merged = [...new Set([...existing, ...hashes])];
-    // Keep only the most recent entries
-    const trimmed = merged.slice(-MAX_SEEN_HASHES);
-    localStorage.setItem(SEEN_HASHES_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(SEEN_HASHES_KEY, JSON.stringify(hashes));
   } catch {
     // localStorage unavailable
   }
@@ -97,9 +93,9 @@ export function useGame() {
       if (state.updatedAt !== lastUpdateRef.current) {
         lastUpdateRef.current = state.updatedAt;
         setGameState(state);
-        // Persist question hashes for dedup across games
+        // Persist current game's question hashes to avoid immediate repeats on next game
         if (state.questionHashes?.length) {
-          addSeenHashes(state.questionHashes);
+          setSeenHashes(state.questionHashes);
         }
       }
     } catch {
